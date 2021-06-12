@@ -28,7 +28,7 @@ from parameterized import parameterized
 from sleekxmpp.jid import JID
 from sqlalchemy import create_engine
 
-from xpartamupp.echelon import main, parse_args, Leaderboard
+from xpartamupp.echelon import Leaderboard, main, parse_args
 from xpartamupp.lobby_ranking import Base
 
 
@@ -56,7 +56,7 @@ class TestLeaderboard(TestCase):
         self.assertEqual(player.games_won, [])
 
     def test_get_profile_no_player(self):
-        """Test profile retrieval fro not existing player."""
+        """Test profile retrieval for not existing player."""
         profile = self.leaderboard.get_profile(JID('john@localhost'))
         self.assertEqual(profile, dict())
 
@@ -68,47 +68,50 @@ class TestLeaderboard(TestCase):
                                        'wins': 0})
 
 
-class TestReportManager(TestCase):
-    """Test ReportManager functionality."""
-
-    pass
-
-
 class TestArgumentParsing(TestCase):
     """Test handling of parsing command line parameters."""
 
     @parameterized.expand([
-        ([], Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=30, xserver=None, xdisabletls=False,
-                       nickname='RatingsBot', password='XXXXXX', room='arena',
-                       database_url='sqlite:///lobby_rankings.sqlite3')),
+        ([],
+         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=30, xserver=None,
+                   xdisabletls=False,
+                   nickname='RatingsBot', password='XXXXXX', room='arena',
+                   database_url='sqlite:///lobby_rankings.sqlite3')),
         (['--debug'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=10, xserver=None,xdisabletls=False,
+         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=10, xserver=None,
+                   xdisabletls=False,
                    nickname='RatingsBot', password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3')),
         (['--quiet'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=40, xserver=None,xdisabletls=False,
+         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=40, xserver=None,
+                   xdisabletls=False,
                    nickname='RatingsBot', password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3')),
         (['--verbose'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=20, xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=20, xserver=None,
+                   xdisabletls=False,
                    nickname='RatingsBot', password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3')),
         (['-m', 'lobby.domain.tld'],
-         Namespace(domain='lobby.domain.tld', login='EcheLOn', log_level=30, nickname='RatingsBot', xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.domain.tld', login='EcheLOn', log_level=30, nickname='RatingsBot',
+                   xserver=None, xdisabletls=False,
                    password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3')),
         (['--domain=lobby.domain.tld'],
-         Namespace(domain='lobby.domain.tld', login='EcheLOn', log_level=30, nickname='RatingsBot', xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.domain.tld', login='EcheLOn', log_level=30, nickname='RatingsBot',
+                   xserver=None, xdisabletls=False,
                    password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['-m' 'lobby.domain.tld', '-l', 'bot', '-p', '123456', '-n', 'Bot', '-r', 'arena123',
+        (['-m', 'lobby.domain.tld', '-l', 'bot', '-p', '123456', '-n', 'Bot', '-r', 'arena123',
           '-v'],
-         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, nickname='Bot', xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, nickname='Bot',
+                   xserver=None, xdisabletls=False,
                    password='123456', room='arena123',
                    database_url='sqlite:///lobby_rankings.sqlite3')),
         (['--domain=lobby.domain.tld', '--login=bot', '--password=123456', '--nickname=Bot',
           '--room=arena123', '--database-url=sqlite:////tmp/db.sqlite3', '--verbose'],
-         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, nickname='Bot', xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, nickname='Bot',
+                   xserver=None, xdisabletls=False,
                    password='123456', room='arena123',
                    database_url='sqlite:////tmp/db.sqlite3')),
     ])

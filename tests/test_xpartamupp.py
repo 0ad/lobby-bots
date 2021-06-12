@@ -87,7 +87,6 @@ class TestGames(TestCase):
 
     def test_change_state(self):
         """Test state changes of a games."""
-        pass
         # slightly unknown how to do that properly, as some data structures aren't known
 
 
@@ -95,30 +94,38 @@ class TestArgumentParsing(TestCase):
     """Test handling of parsing command line parameters."""
 
     @parameterized.expand([
-        ([], Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=30, xserver=None, xdisabletls=False,
+        ([], Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=30,
+                       xserver=None, xdisabletls=False,
                        nickname='WFGBot', password='XXXXXX', room='arena')),
         (['--debug'],
-         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=10, xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=10,
+                   xserver=None, xdisabletls=False,
                    nickname='WFGBot', password='XXXXXX', room='arena')),
         (['--quiet'],
-         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=40, xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=40,
+                   xserver=None, xdisabletls=False,
                    nickname='WFGBot', password='XXXXXX', room='arena')),
         (['--verbose'],
-         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=20, xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=20,
+                   xserver=None, xdisabletls=False,
                    nickname='WFGBot', password='XXXXXX', room='arena')),
         (['-m', 'lobby.domain.tld'],
-         Namespace(domain='lobby.domain.tld', login='xpartamupp', log_level=30, nickname='WFGBot', xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.domain.tld', login='xpartamupp', log_level=30, nickname='WFGBot',
+                   xserver=None, xdisabletls=False,
                    password='XXXXXX', room='arena')),
         (['--domain=lobby.domain.tld'],
-         Namespace(domain='lobby.domain.tld', login='xpartamupp', log_level=30, nickname='WFGBot', xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.domain.tld', login='xpartamupp', log_level=30, nickname='WFGBot',
+                   xserver=None, xdisabletls=False,
                    password='XXXXXX', room='arena')),
-        (['-m' 'lobby.domain.tld', '-l', 'bot', '-p', '123456', '-n', 'Bot', '-r', 'arena123',
+        (['-m', 'lobby.domain.tld', '-l', 'bot', '-p', '123456', '-n', 'Bot', '-r', 'arena123',
           '-v'],
-         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, xserver=None,
+                   xdisabletls=False,
                    nickname='Bot', password='123456', room='arena123')),
         (['--domain=lobby.domain.tld', '--login=bot', '--password=123456', '--nickname=Bot',
           '--room=arena123', '--verbose'],
-         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, xserver=None, xdisabletls=False,
+         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, xserver=None,
+                   xdisabletls=False,
                    nickname='Bot', password='123456', room='arena123')),
     ])
     def test_valid(self, cmd_args, expected_args):

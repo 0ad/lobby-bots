@@ -22,8 +22,8 @@ from hypothesis import assume, example, given
 from hypothesis import strategies as st
 from parameterized import parameterized
 
-from xpartamupp.elo import (get_rating_adjustment, ANTI_INFLATION, ELO_K_FACTOR_CONSTANT_RATING,
-                            ELO_SURE_WIN_DIFFERENCE, VOLATILITY_CONSTANT)
+from xpartamupp.elo import (ANTI_INFLATION, ELO_K_FACTOR_CONSTANT_RATING, ELO_SURE_WIN_DIFFERENCE,
+                            VOLATILITY_CONSTANT, get_rating_adjustment)
 
 
 class TestELO(TestCase):
@@ -96,8 +96,7 @@ class TestELO(TestCase):
         """Test behavior if winning player 1 has >600 points more.
 
         In this case the winning player shouldn't gain points, as it
-        was a "sure win" and the loosing player shouldn't loose
-        points.
+        was a "sure win" and the losing player shouldn't lose points.
         """
         rating_player1 = data.draw(st.integers(min_value=-1599))
         difference_player2 = data.draw(st.integers(min_value=ELO_SURE_WIN_DIFFERENCE))
@@ -122,8 +121,7 @@ class TestELO(TestCase):
         """Test behavior if winning player 2 has >600 points more.
 
         In this case the winning player shouldn't gain points, as it
-        was a "sure win" and the loosing player shouldn't loose
-        points.
+        was a "sure win" and the losing player shouldn't lose points.
         """
         self.assertEqual(get_rating_adjustment(rating_player1,
                                                rating_player1 - difference_player2 * -1,

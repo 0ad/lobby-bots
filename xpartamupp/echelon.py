@@ -22,9 +22,11 @@ import argparse
 import difflib
 import logging
 import sys
+
 from collections import deque
 
 import sleekxmpp
+
 from sleekxmpp.stanza import Iq
 from sleekxmpp.xmlstream.handler import Callback
 from sleekxmpp.xmlstream.matcher import StanzaPath
@@ -34,7 +36,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 from xpartamupp.elo import get_rating_adjustment
 from xpartamupp.lobby_ranking import Game, Player, PlayerInfo
-from xpartamupp.stanzas import (BoardListXmppPlugin, GameReportXmppPlugin, ProfileXmppPlugin)
+from xpartamupp.stanzas import BoardListXmppPlugin, GameReportXmppPlugin, ProfileXmppPlugin
 from xpartamupp.utils import LimitedSizeDict
 
 # Rating that new players should be inserted into the
@@ -42,7 +44,7 @@ from xpartamupp.utils import LimitedSizeDict
 LEADERBOARD_DEFAULT_RATING = 1200
 
 
-class Leaderboard(object):
+class Leaderboard:
     """Class that provides and manages leaderboard data."""
 
     def __init__(self, db_url):
@@ -334,7 +336,7 @@ class Leaderboard(object):
         return ratings
 
 
-class ReportManager(object):
+class ReportManager:
     """Class which manages different game reports from clients.
 
     Calls leaderboard functions as appropriate.
@@ -348,7 +350,7 @@ class ReportManager(object):
 
         """
         self.leaderboard = leaderboard
-        self.interim_report_tracker = LimitedSizeDict(size_limit=2**12)
+        self.interim_report_tracker = LimitedSizeDict(size_limit=2 ** 12)
 
     def add_report(self, jid, raw_game_report):
         """Add a game to the interface between a raw report and the leaderboard database.
@@ -770,11 +772,13 @@ def parse_args(args):
     parser.add_argument('--database-url', help="URL for the leaderboard database",
                         default='sqlite:///lobby_rankings.sqlite3')
     parser.add_argument('-s', '--server', help='address of the ejabberd server',
-                  action='store', dest='xserver', default=None)
-    parser.add_argument('-t', '--disable-tls', help='Pass this argument to connect without TLS encryption',
-                  action='store_true', dest='xdisabletls', default=False)
+                        action='store', dest='xserver', default=None)
+    parser.add_argument('-t', '--disable-tls',
+                        help='Pass this argument to connect without TLS encryption',
+                        action='store_true', dest='xdisabletls', default=False)
 
     return parser.parse_args(args)
+
 
 def main():
     """Entry point a console script."""
