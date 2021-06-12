@@ -16,7 +16,7 @@
 
 """0ad-specific XMPP-stanzas."""
 
-from sleekxmpp.xmlstream import ElementBase, ET
+from sleekxmpp.xmlstream import ET, ElementBase
 
 
 class BoardListXmppPlugin(ElementBase):
@@ -61,8 +61,10 @@ class GameListXmppPlugin(ElementBase):
         Arguments:
             data (dict): game data to add
         """
-        try: del data['ip']	# Don't send the IP address with the gamelist.
-        except: pass
+        try:
+            del data['ip']  # Don't send the IP address with the gamelist.
+        except Exception:
+            pass
 
         self.xml.append(ET.Element('game', data))
 

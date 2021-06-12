@@ -19,10 +19,11 @@
 
 import argparse
 import logging
-import time
 import sys
+import time
 
 import sleekxmpp
+
 from sleekxmpp.stanza import Iq
 from sleekxmpp.xmlstream.handler import Callback
 from sleekxmpp.xmlstream.matcher import StanzaPath
@@ -32,12 +33,12 @@ from xpartamupp.stanzas import GameListXmppPlugin
 from xpartamupp.utils import LimitedSizeDict
 
 
-class Games(object):
+class Games:
     """Class to tracks all games in the lobby."""
 
     def __init__(self):
         """Initialize with empty games."""
-        self.games = LimitedSizeDict(size_limit=2**7)
+        self.games = LimitedSizeDict(size_limit=2 ** 7)
 
     def add_game(self, jid, data):
         """Add a game.
@@ -256,7 +257,8 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
             logging.info('Received unknown game command: "%s"', command)
 
         iq.reply(clear=not success)
-        if not success: iq['error']['condition'] = "undefined-condition"
+        if not success:
+            iq['error']['condition'] = "undefined-condition"
         iq.send()
 
         if success:
@@ -331,9 +333,10 @@ def parse_args(args):
     parser.add_argument('-n', '--nickname', help="nickname shown to players", default='WFGBot')
     parser.add_argument('-r', '--room', help="XMPP MUC room to join", default='arena')
     parser.add_argument('-s', '--server', help='address of the ejabberd server',
-                  action='store', dest='xserver', default=None)
-    parser.add_argument('-t', '--disable-tls', help='Pass this argument to connect without TLS encryption',
-                  action='store_true', dest='xdisabletls', default=False)
+                        action='store', dest='xserver', default=None)
+    parser.add_argument('-t', '--disable-tls',
+                        help='Pass this argument to connect without TLS encryption',
+                        action='store_true', dest='xdisabletls', default=False)
 
     return parser.parse_args(args)
 
@@ -355,9 +358,9 @@ def main():
     xmpp.register_plugin('xep_0199', {'keepalive': True})  # XMPP Ping
 
     if xmpp.connect((args.xserver, 5222) if args.xserver else None, True, not args.xdisabletls):
-      xmpp.process()
+        xmpp.process()
     else:
-      logging.error("Unable to connect")
+        logging.error("Unable to connect")
 
 
 if __name__ == '__main__':
