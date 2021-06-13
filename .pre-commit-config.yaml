@@ -39,6 +39,12 @@ repos:
     rev: v1.0.5
     hooks:
       - id: python-bandit-vulnerability-check
+        args:
+          - -lll
+          - --recursive
+          - --exclude
+          - ./.tox,./.eggs
+          - .
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
     rev: v1.2.1
