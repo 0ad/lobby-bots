@@ -41,3 +41,35 @@ $ pre-commit install
 
 For more information about the pre-commit framework, check out their website:
 https://pre-commit.com/.
+
+## Unit tests
+
+We use unit tests to test that individual parts of the code work as expected. Any submitted changes
+should have associated unit tests, so we can be confident that the code does what it should.
+Submissions should also not result in less unit test coverage than we had before.
+
+The unit tests use Python's [`unittest`](https://docs.python.org/3/library/unittest.html)
+framework and [`hypothesis`](https://hypothesis.readthedocs.io/) for property-based testing.
+They're executed automatically for every submitted pull request and their result is shown in the
+messages section at the bottom of the pull request page on Github.
+
+To run the unit tests locally, you can use [`tox`](https://tox.readthedocs.io/), which handles the
+creation of an environment with the necessary dependencies installed for you. To install `tox` run:
+
+```
+pip3 install tox
+```
+
+Afterwards you can run the tests by calling `tox` from the repository root:
+
+```
+tox
+```
+
+Running `tox` locally uses the Python 3 version available as default Python version on your system.
+If you have multiple Python versions installed and want to use a certain one, you can specify which
+one to use as command line parameter:
+
+```
+tox -e py37
+```
