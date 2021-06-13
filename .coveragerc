@@ -1,0 +1,5 @@
+[run]
+include = xpartamupp/*
+
+[report]
+fail_under = 45
