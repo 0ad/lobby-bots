@@ -4,6 +4,12 @@
 
 from setuptools import find_packages, setup
 
+TEST_REQUIREMENTS = [
+    'coverage',
+    'hypothesis',
+    'parameterized',
+]
+
 setup(
     name='XpartaMuPP',
     version='0.24',
@@ -21,11 +27,8 @@ setup(
         'sleekxmpp',
         'sqlalchemy',
     ],
-    tests_require=[
-        'coverage',
-        'hypothesis',
-        'parameterized',
-    ],
+    extras_require={'tests': TEST_REQUIREMENTS},
+    tests_require=TEST_REQUIREMENTS,
     classifiers=[
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)',
