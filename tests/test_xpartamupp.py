@@ -43,7 +43,7 @@ class TestGames(TestCase):
         all_games = games.get_all_games()
         game_data.update({'players-init': game_data['players'], 'nbp-init': game_data['nbp'],
                           'state': game_data['state']})
-        self.assertDictEqual(all_games, {jid: game_data})
+        self.assertDictEqual(all_games, {jid: {jid.resource: game_data}})
 
     @parameterized.expand([
         ('', {}),
@@ -70,9 +70,9 @@ class TestGames(TestCase):
                            'state': game_data1['state']})
         game_data2.update({'players-init': game_data2['players'], 'nbp-init': game_data2['nbp'],
                            'state': game_data2['state']})
-        self.assertDictEqual(games.get_all_games(), {jid1: game_data1, jid2: game_data2})
+        self.assertDictEqual(games.get_all_games(), {jid1: {jid1.resource: game_data1}, jid2: {jid2.resource: game_data2}})
         games.remove_game(jid1)
-        self.assertDictEqual(games.get_all_games(), {jid2: game_data2})
+        self.assertDictEqual(games.get_all_games(), {jid2: {jid2.resource: game_data2}})
         games.remove_game(jid2)
         self.assertDictEqual(games.get_all_games(), dict())
 

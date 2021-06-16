@@ -37,7 +37,12 @@ class Games:
     """Class to tracks all games in the lobby."""
 
     def __init__(self):
-        """Initialize with empty games."""
+        """Initialize with empty games.
+
+        self.games is a dictionary keyed by the jid of each hosting player.
+        Each item is a dictionary of all the games hosted
+        by that player and keyed by the resource.
+        """
         self.games = LimitedSizeDict(size_limit=2 ** 7)
 
     def add_game(self, jid, data):
@@ -60,7 +65,9 @@ class Games:
             logging.warning("Received invalid data for add game from 0ad: %s", data)
             return False
         else:
-            self.games[jid] = data
+            if jid.bare not in self.games:
+                self.games[jid.bare] = {}
+            self.games[jid.bare][jid.resource] = data
             return True
 
     def remove_game(self, jid):
@@ -75,7 +82,9 @@ class Games:
 
         """
         try:
-            del self.games[jid]
+            del self.games[jid.bare][jid.resource]
+            if len(self.games[jid.bare]) == 0:
+                del self.games[jid.bare]
         except KeyError:
             logging.warning("Game for jid %s didn't exist", jid)
             return False
@@ -104,7 +113,7 @@ class Games:
             True if changing the game state succeeded, False if not
 
         """
-        if jid not in self.games:
+        if jid.bare not in self.games or jid.resource not in self.games[jid.bare]:
             logging.warning("Tried to change state for non-existent game %s", jid)
             return False
 
@@ -281,7 +290,8 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
 
         stanza = GameListXmppPlugin()
         for jid in games:
-            stanza.add_game(games[jid])
+            for resource in jid:
+               stanza.add_game(games[jid][resource])
 
         if not to:
             for nick in self.plugin['xep_0045'].getRoster(self.room):
