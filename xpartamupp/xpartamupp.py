@@ -95,11 +95,16 @@ class Games:
         """Return all games.
 
         Returns:
-            dict containing all games with the JID of the player who
-            started the game as key.
+            list containing all games. Sorted by jid then by resource.
 
         """
-        return self.games
+        return [game
+                for jid, dict_of_resources_and_games
+                in sorted(self.games.items(),
+                          key=lambda item: item[0])         # sort by jid
+                for resource, game
+                in sorted(dict_of_resources_and_games.items(),
+                          key=lambda item: item[0])]        # sort by resource
 
     def change_game_state(self, jid, data):
         """Switch game state between running and waiting.
@@ -247,7 +252,6 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
             iq (sleekxmpp.stanza.iq.IQ): Received IQ stanza
 
         """
-
         success = False
 
         command = iq['gamelist']['command']
@@ -284,9 +288,8 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         games = self.games.get_all_games()
 
         stanza = GameListXmppPlugin()
-        for jid in games:
-            for resource in jid:
-               stanza.add_game(games[jid][resource])
+        for game in games:
+            stanza.add_game(game)
 
         if not to:
             for nick in self.plugin['xep_0045'].getRoster(self.room):

@@ -43,7 +43,7 @@ class TestGames(TestCase):
         all_games = games.get_all_games()
         game_data.update({'players-init': game_data['players'], 'nbp-init': game_data['nbp'],
                           'state': game_data['state']})
-        self.assertDictEqual(all_games, {jid.bare: {jid.resource: game_data}})
+        self.assertListEqual(all_games, [game_data])
 
     @parameterized.expand([
         ('', {}),
@@ -70,11 +70,11 @@ class TestGames(TestCase):
                            'state': game_data1['state']})
         game_data2.update({'players-init': game_data2['players'], 'nbp-init': game_data2['nbp'],
                            'state': game_data2['state']})
-        self.assertDictEqual(games.get_all_games(), {jid1.bare: {jid1.resource: game_data1}, jid2.bare: {jid2.resource: game_data2}})
+        self.assertListEqual(games.get_all_games(), [game_data1, game_data2])
         games.remove_game(jid1)
-        self.assertDictEqual(games.get_all_games(), {jid2.bare: {jid2.resource: game_data2}})
+        self.assertListEqual(games.get_all_games(), [game_data2])
         games.remove_game(jid2)
-        self.assertDictEqual(games.get_all_games(), dict())
+        self.assertListEqual(games.get_all_games(), [])
 
     def test_remove_unknown(self):
         """Test removal of a game, which doesn't exist."""
