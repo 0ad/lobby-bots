@@ -524,9 +524,6 @@ class EcheLOn(sleekxmpp.ClientXMPP):
         if nick == self.nick:
             return
 
-        if jid.resource != '0ad':
-            return
-
         self.leaderboard.get_or_create_player(jid)
 
         self._broadcast_rating_list()
@@ -573,8 +570,6 @@ class EcheLOn(sleekxmpp.ClientXMPP):
             iq (sleekxmpp.stanza.iq.IQ): Received IQ stanza
 
         """
-        if iq['from'].resource not in ['0ad']:
-            return
 
         command = iq['boardlist']['command']
         self.leaderboard.get_or_create_player(iq['from'])
@@ -597,8 +592,6 @@ class EcheLOn(sleekxmpp.ClientXMPP):
             iq (sleekxmpp.stanza.iq.IQ): Received IQ stanza
 
         """
-        if iq['from'].resource not in ['0ad']:
-            return
 
         try:
             self.report_manager.add_report(iq['from'], iq['gamereport']['game'])
@@ -619,8 +612,6 @@ class EcheLOn(sleekxmpp.ClientXMPP):
             iq (sleekxmpp.stanza.iq.IQ): Received IQ stanza
 
         """
-        if iq['from'].resource not in ['0ad']:
-            return
 
         try:
             self._send_profile(iq, iq['profile']['command'])

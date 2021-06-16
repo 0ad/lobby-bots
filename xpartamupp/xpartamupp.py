@@ -197,9 +197,6 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         if nick == self.nick:
             return
 
-        if jid.resource not in ['0ad', 'CC']:
-            return
-
         self._send_game_list(jid)
 
         logging.debug("Client '%s' connected with a nick '%s'.", jid, nick)
@@ -250,8 +247,6 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
             iq (sleekxmpp.stanza.iq.IQ): Received IQ stanza
 
         """
-        if iq['from'].resource != '0ad':
-            return
 
         success = False
 
