@@ -36,20 +36,20 @@ class TestGames(TestCase):
     def test_add(self):
         """Test successfully adding a game."""
         games = Games()
-        jid = JID(jid='player1@domain.tld')
+        jid = JID(jid='player1@domain.tld/0ad-asdf1234')
         # TODO: Check how the real format of data looks like
         game_data = {'players': ['player1', 'player2'], 'nbp': 'foo', 'state': 'init'}
         self.assertTrue(games.add_game(jid, game_data))
         all_games = games.get_all_games()
         game_data.update({'players-init': game_data['players'], 'nbp-init': game_data['nbp'],
                           'state': game_data['state']})
-        self.assertDictEqual(all_games, {jid: {jid.resource: game_data}})
+        self.assertDictEqual(all_games, {jid.bare: {jid.resource: game_data}})
 
     @parameterized.expand([
         ('', {}),
-        ('player1@domain.tld', {}),
-        ('player1@domain.tld', None),
-        ('player1@domain.tld', ''),
+        ('player1@domain.tld/0ad-asdf1234', {}),
+        ('player1@domain.tld/0ad-asdf1234', None),
+        ('player1@domain.tld/0ad-asdf1234', ''),
     ])
     def test_add_invalid(self, jid, game_data):
         """Test trying to add games with invalid data."""
@@ -59,8 +59,8 @@ class TestGames(TestCase):
     def test_remove(self):
         """Test removal of games."""
         games = Games()
-        jid1 = JID(jid='player1@domain.tld')
-        jid2 = JID(jid='player3@domain.tld')
+        jid1 = JID(jid='player1@domain.tld/0ad-asdf1234')
+        jid2 = JID(jid='player3@domain.tld/0ad-qwer2345')
         # TODO: Check how the real format of data looks like
         game_data1 = {'players': ['player1', 'player2'], 'nbp': 'foo', 'state': 'init'}
         games.add_game(jid1, game_data1)
@@ -70,20 +70,20 @@ class TestGames(TestCase):
                            'state': game_data1['state']})
         game_data2.update({'players-init': game_data2['players'], 'nbp-init': game_data2['nbp'],
                            'state': game_data2['state']})
-        self.assertDictEqual(games.get_all_games(), {jid1: {jid1.resource: game_data1}, jid2: {jid2.resource: game_data2}})
+        self.assertDictEqual(games.get_all_games(), {jid1.bare: {jid1.resource: game_data1}, jid2.bare: {jid2.resource: game_data2}})
         games.remove_game(jid1)
-        self.assertDictEqual(games.get_all_games(), {jid2: {jid2.resource: game_data2}})
+        self.assertDictEqual(games.get_all_games(), {jid2.bare: {jid2.resource: game_data2}})
         games.remove_game(jid2)
         self.assertDictEqual(games.get_all_games(), dict())
 
     def test_remove_unknown(self):
         """Test removal of a game, which doesn't exist."""
         games = Games()
-        jid = JID(jid='player1@domain.tld')
+        jid = JID('player1@domain.tld/0ad-asdf1234')
         # TODO: Check how the real format of data looks like
         game_data = {'players': ['player1', 'player2'], 'nbp': 'foo', 'state': 'init'}
         games.add_game(jid, game_data)
-        self.assertFalse(games.remove_game(JID('foo@bar.tld')))
+        self.assertFalse(games.remove_game(JID('foo@bar.tld/0ad-qwer2345')))
 
     def test_change_state(self):
         """Test state changes of a games."""
