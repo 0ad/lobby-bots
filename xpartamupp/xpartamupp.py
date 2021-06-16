@@ -91,6 +91,25 @@ class Games:
         else:
             return True
 
+    def remove_all_games_for_jid(self, jid):
+        """Remove all games attached to the bare version of the JID.
+
+        Arguments:
+            jid (sleekxmpp.jid.JID): JID of the player whose games to
+                remove.
+
+        Returns:
+            True if removing the games succeeded, False if not
+
+        """
+        try:
+            del self.games[jid.bare]
+        except KeyError:
+            logging.warning("No games for jid %s exist", jid)
+            return False
+        else:
+            return True
+
     def get_all_games(self):
         """Return all games.
 
@@ -223,7 +242,7 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         if nick == self.nick:
             return
 
-        if self.games.remove_game(jid):
+        if self.games.remove_all_games_for_jid(jid):
             self._send_game_list()
 
         logging.debug("Client '%s' with nick '%s' disconnected", jid, nick)

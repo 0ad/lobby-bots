@@ -76,6 +76,85 @@ class TestGames(TestCase):
         games.remove_game(jid2)
         self.assertListEqual(games.get_all_games(), [])
 
+    def test_remove_all_games_for_jid(self):
+        """Test removal of all games belonging to a jid."""
+        games = Games()
+
+        jids = []
+
+        jids.append(JID(jid="player1@domain.tld", resource="0ad-asdf1234"))
+        jids.append(JID(jid="player1@domain.tld", resource="0ad-qwer2345"))
+        jids.append(JID(jid="player1@domain.tld", resource="0ad-zxcv3456"))
+        jids.append(JID(jid="player2@domain.tld", resource="0ad-tyui4567"))
+        jids.append(JID(jid="player3@domain.tld", resource="0ad-ghjk5678"))
+        jids.append(JID(jid="player4@domain.tld", resource="0ad-bnmp6789"))
+
+        game_data1 = {'players': ['player1', 'player2'], 'nbp': 'foo', 'state': 'init'}
+        games.add_game(jids[0], game_data1)
+        game_data2 = {'players': ['player3', 'player4'], 'nbp': 'bar', 'state': 'init'}
+        games.add_game(jids[1], game_data2)
+        game_data3 = {'players': ['player5', 'player6'], 'nbp': 'bar', 'state': 'init'}
+        games.add_game(jids[2], game_data3)
+        game_data4 = {'players': ['player7', 'player8'], 'nbp': 'foo', 'state': 'init'}
+        games.add_game(jids[3], game_data4)
+        game_data5 = {'players': ['player9', 'playera'], 'nbp': 'bar', 'state': 'init'}
+        games.add_game(jids[4], game_data5)
+        game_data6 = {'players': ['playerb', 'playerc'], 'nbp': 'bar', 'state': 'init'}
+        games.add_game(jids[5], game_data6)
+
+        game_data1.update({'players-init': game_data1['players'],
+                           'nbp-init': game_data1['nbp'],
+                           'state': game_data1['state']})
+        game_data2.update({'players-init': game_data2['players'],
+                           'nbp-init': game_data2['nbp'],
+                           'state': game_data2['state']})
+        game_data3.update({'players-init': game_data3['players'],
+                           'nbp-init': game_data3['nbp'],
+                           'state': game_data3['state']})
+        game_data4.update({'players-init': game_data4['players'],
+                           'nbp-init': game_data4['nbp'],
+                           'state': game_data4['state']})
+        game_data5.update({'players-init': game_data5['players'],
+                           'nbp-init': game_data5['nbp'],
+                           'state': game_data5['state']})
+        game_data6.update({'players-init': game_data6['players'],
+                           'nbp-init': game_data6['nbp'],
+                           'state': game_data6['state']})
+
+        expected_games_dict = {
+            jids[0].bare: {jids[0].resource: game_data1, jids[1].resource: game_data2,
+                           jids[2].resource: game_data3},
+            jids[3].bare: {jids[3].resource: game_data4},
+            jids[4].bare: {jids[4].resource: game_data5},
+            jids[5].bare: {jids[5].resource: game_data6}}
+        self.assertDictEqual(expected_games_dict, games.games)
+
+        expected_games_list = [game
+                               for jid, dict_of_resources_and_games
+                               in sorted(expected_games_dict.items(),
+                                         key=lambda item: item[0])      # sort by jid
+                               for resource, game
+                               in sorted(dict_of_resources_and_games.items(),
+                                         key=lambda item: item[0])]     # sort by resource
+        self.assertListEqual(games.get_all_games(), expected_games_list)
+
+        games.remove_all_games_for_jid(jids[0])
+
+        expected_games_dict = {
+            jids[3].bare: {jids[3].resource: game_data4},
+            jids[4].bare: {jids[4].resource: game_data5},
+            jids[5].bare: {jids[5].resource: game_data6}}
+        self.assertDictEqual(expected_games_dict, games.games)
+
+        expected_games_list = [game
+                               for jid, dict_of_resources_and_games
+                               in sorted(expected_games_dict.items(),
+                                         key=lambda item: item[0])      # sort by jid
+                               for resource, game
+                               in sorted(dict_of_resources_and_games.items(),
+                                         key=lambda item: item[0])]     # sort by resource
+        self.assertListEqual(games.get_all_games(), expected_games_list)
+
     def test_remove_unknown(self):
         """Test removal of a game, which doesn't exist."""
         games = Games()
