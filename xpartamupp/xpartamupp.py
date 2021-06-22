@@ -141,23 +141,25 @@ class Games:
             logging.warning("Tried to change state for non-existent game %s", jid)
             return False
 
+        game = self.games[jid.bare][jid.resource]
+
         try:
-            if self.games[jid]['nbp-init'] > data['nbp']:
+            if game['nbp-init'] > data['nbp']:
                 logging.debug("change game (%s) state from %s to %s", jid,
-                              self.games[jid]['state'], 'waiting')
-                self.games[jid]['state'] = 'waiting'
+                              game['state'], 'waiting')
+                game['state'] = 'waiting'
             else:
                 logging.debug("change game (%s) state from %s to %s", jid,
-                              self.games[jid]['state'], 'running')
-                self.games[jid]['state'] = 'running'
-            self.games[jid]['nbp'] = data['nbp']
-            self.games[jid]['players'] = data['players']
+                              game['state'], 'running')
+                game['state'] = 'running'
+            game['nbp'] = data['nbp']
+            game['players'] = data['players']
         except (KeyError, ValueError):
             logging.warning("Received invalid data for change game state from 0ad: %s", data)
             return False
         else:
-            if 'startTime' not in self.games[jid]:
-                self.games[jid]['startTime'] = str(round(time.time()))
+            if 'startTime' not in game:
+                game['startTime'] = str(round(time.time()))
             return True
 
 
