@@ -127,16 +127,7 @@ class TestGames(TestCase):
             jids[3].bare: {jids[3].resource: game_data4},
             jids[4].bare: {jids[4].resource: game_data5},
             jids[5].bare: {jids[5].resource: game_data6}}
-        self.assertDictEqual(expected_games_dict, games.games)
-
-        expected_games_list = [game
-                               for jid, dict_of_resources_and_games
-                               in sorted(expected_games_dict.items(),
-                                         key=lambda item: item[0])      # sort by jid
-                               for resource, game
-                               in sorted(dict_of_resources_and_games.items(),
-                                         key=lambda item: item[0])]     # sort by resource
-        self.assertListEqual(games.get_all_games(), expected_games_list)
+        self.assertDictEqual(games.games, expected_games_dict)
 
         games.remove_all_games_for_jid(jids[0])
 
@@ -145,15 +136,6 @@ class TestGames(TestCase):
             jids[4].bare: {jids[4].resource: game_data5},
             jids[5].bare: {jids[5].resource: game_data6}}
         self.assertDictEqual(expected_games_dict, games.games)
-
-        expected_games_list = [game
-                               for jid, dict_of_resources_and_games
-                               in sorted(expected_games_dict.items(),
-                                         key=lambda item: item[0])      # sort by jid
-                               for resource, game
-                               in sorted(dict_of_resources_and_games.items(),
-                                         key=lambda item: item[0])]     # sort by resource
-        self.assertListEqual(games.get_all_games(), expected_games_list)
 
     def test_remove_unknown(self):
         """Test removal of a game, which doesn't exist."""

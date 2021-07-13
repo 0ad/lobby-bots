@@ -114,16 +114,15 @@ class Games:
         """Return all games.
 
         Returns:
-            list containing all games. Sorted by jid then by resource.
+            list containing all games.
 
         """
-        return [game
-                for jid, dict_of_resources_and_games
-                in sorted(self.games.items(),
-                          key=lambda item: item[0])         # sort by jid
-                for resource, game
-                in sorted(dict_of_resources_and_games.items(),
-                          key=lambda item: item[0])]        # sort by resource
+        games = []
+        for _, games_by_resource in self.games.items():
+            for _, game in games_by_resource.items():
+                games.append(game)
+
+        return games
 
     def change_game_state(self, jid, data):
         """Switch game state between running and waiting.
