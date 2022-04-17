@@ -80,11 +80,11 @@ You should now be able to connect to this XMPP server using any XMPP client.
 
 ### 1.2 Install python3 and SleekXMPP
 
-* The lobby bots are implemented in python3 and use SleekXMPP to connect to the lobby. Install
-  these dependencies using:
+* The lobby bots are implemented in Python 3 and use SleekXMPP to connect to the lobby. Right now
+  only Python 3.7 is supported. Install these dependencies using:
 
     ```
-    $ apt-get install python3 python3-sleekxmpp
+    $ apt-get install python3.7 python3-sleekxmpp
     ```
 
 * Confirm that the SleekXmpp version is 1.3.1 or later:
