@@ -1,5 +1,6 @@
 [run]
 include = xpartamupp/*
+branch = True
 
 [report]
-fail_under = 45
+fail_under = 40
