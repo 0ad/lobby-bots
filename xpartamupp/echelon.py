@@ -325,6 +325,7 @@ class Leaderboard:
         """
         ratings = {}
         if nicks:
+            nicks = {"%s/0ad" % jid.bare: nick for jid, nick in nicks.items()}
             player_filter = func.lower(Player.jid).in_([str(jid).lower() for jid in list(nicks)])
             players = self.db.query(Player.jid, Player.rating).filter(player_filter)
             for player in players:
@@ -367,7 +368,7 @@ class ReportManager:
         if match_id not in self.interim_report_tracker:
             self.interim_report_tracker[match_id] = {
                 'report': raw_game_report,
-                'jids': {player_index: str(jid)}
+                'jids': {player_index: str(jid.bare) + "/0ad"}
             }
         else:
             current_match = self.interim_report_tracker[match_id]
@@ -379,7 +380,7 @@ class ReportManager:
 
             player_jids = current_match['jids']
             if player_index in player_jids:
-                if player_jids[player_index] == jid:
+                if player_jids[player_index] == jid.bare + "/0ad":
                     logging.warning("Received a report for match %s from player %s twice.",
                                     match_id, jid)
                 else:
@@ -388,7 +389,7 @@ class ReportManager:
                                     player_jids[player_index], jid)
                 return
             else:
-                player_jids[player_index] = str(jid)
+                player_jids[player_index] = str(jid.bare + "/0ad")
 
             num_players = self._get_num_players(raw_game_report)
             num_retrieved_reports = len(player_jids)
@@ -524,10 +525,7 @@ class EcheLOn(sleekxmpp.ClientXMPP):
         if nick == self.nick:
             return
 
-        if jid.resource != '0ad':
-            return
-
-        self.leaderboard.get_or_create_player(jid)
+        self.leaderboard.get_or_create_player(jid.bare + "/0ad")
 
         self._broadcast_rating_list()
 
@@ -573,11 +571,8 @@ class EcheLOn(sleekxmpp.ClientXMPP):
             iq (sleekxmpp.stanza.iq.IQ): Received IQ stanza
 
         """
-        if iq['from'].resource not in ['0ad']:
-            return
-
         command = iq['boardlist']['command']
-        self.leaderboard.get_or_create_player(iq['from'])
+        self.leaderboard.get_or_create_player(iq['from'].bare + "/0ad")
         if command == 'getleaderboard':
             try:
                 self._send_leaderboard(iq)
@@ -597,9 +592,6 @@ class EcheLOn(sleekxmpp.ClientXMPP):
             iq (sleekxmpp.stanza.iq.IQ): Received IQ stanza
 
         """
-        if iq['from'].resource not in ['0ad']:
-            return
-
         try:
             self.report_manager.add_report(iq['from'], iq['gamereport']['game'])
         except Exception:
@@ -619,9 +611,6 @@ class EcheLOn(sleekxmpp.ClientXMPP):
             iq (sleekxmpp.stanza.iq.IQ): Received IQ stanza
 
         """
-        if iq['from'].resource not in ['0ad']:
-            return
-
         try:
             self._send_profile(iq, iq['profile']['command'])
         except Exception:
@@ -658,7 +647,7 @@ class EcheLOn(sleekxmpp.ClientXMPP):
         """
         nicks = {}
         for nick in self.plugin['xep_0045'].getRoster(self.room):
-            if nick == self.nick:
+            if nick == self.nick or not nick:
                 continue
             jid_str = self.plugin['xep_0045'].getJidProperty(self.room, nick, 'jid')
             jid = sleekxmpp.jid.JID(jid_str)
@@ -681,7 +670,7 @@ class EcheLOn(sleekxmpp.ClientXMPP):
         """Broadcast the ratings of all online players."""
         nicks = {}
         for nick in self.plugin['xep_0045'].getRoster(self.room):
-            if nick == self.nick:
+            if nick == self.nick or not nick:
                 continue
             jid_str = self.plugin['xep_0045'].getJidProperty(self.room, nick, 'jid')
             jid = sleekxmpp.jid.JID(jid_str)
@@ -711,12 +700,13 @@ class EcheLOn(sleekxmpp.ClientXMPP):
 
         """
         jid_str = self.plugin['xep_0045'].getJidProperty(self.room, player_nick, 'jid')
-        player_jid = sleekxmpp.jid.JID(jid_str) if jid_str else None
+        player_jid = sleekxmpp.jid.JID("%s/0ad" % sleekxmpp.jid.JID(jid_str).bare) \
+            if jid_str else None
 
         # The player the profile got requested for is not online, so
         # let's assume the JID contains the nick as local part.
         if not player_jid:
-            player_jid = sleekxmpp.jid.JID('%s@%s/%s' % (player_nick, self.sjid.domain, '0ad'))
+            player_jid = sleekxmpp.jid.JID('%s@%s/0ad' % (player_nick, self.sjid.domain))
 
         try:
             stats = self.leaderboard.get_profile(player_jid)

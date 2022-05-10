@@ -37,7 +37,12 @@ class Games:
     """Class to tracks all games in the lobby."""
 
     def __init__(self):
-        """Initialize with empty games."""
+        """Initialize with empty games.
+
+        self.games is a dictionary keyed by the jid of each hosting player.
+        Each item is a dictionary of all the games hosted
+        by that player and keyed by the resource.
+        """
         self.games = LimitedSizeDict(size_limit=2 ** 7)
 
     def add_game(self, jid, data):
@@ -60,7 +65,9 @@ class Games:
             logging.warning("Received invalid data for add game from 0ad: %s", data)
             return False
         else:
-            self.games[jid] = data
+            if jid.bare not in self.games:
+                self.games[jid.bare] = {}
+            self.games[jid.bare][jid.resource] = data
             return True
 
     def remove_game(self, jid):
@@ -75,9 +82,30 @@ class Games:
 
         """
         try:
-            del self.games[jid]
+            del self.games[jid.bare][jid.resource]
+            if len(self.games[jid.bare]) == 0:
+                del self.games[jid.bare]
         except KeyError:
             logging.warning("Game for jid %s didn't exist", jid)
+            return False
+        else:
+            return True
+
+    def remove_all_games_for_jid(self, jid):
+        """Remove all games attached to the bare version of the JID.
+
+        Arguments:
+            jid (sleekxmpp.jid.JID): JID of the player whose games to
+                remove.
+
+        Returns:
+            True if removing the games succeeded, False if not
+
+        """
+        try:
+            del self.games[jid.bare]
+        except KeyError:
+            logging.warning("No games for jid %s exist", jid)
             return False
         else:
             return True
@@ -86,11 +114,15 @@ class Games:
         """Return all games.
 
         Returns:
-            dict containing all games with the JID of the player who
-            started the game as key.
+            list containing all games.
 
         """
-        return self.games
+        games = []
+        for _, games_by_resource in self.games.items():
+            for _, game in games_by_resource.items():
+                games.append(game)
+
+        return games
 
     def change_game_state(self, jid, data):
         """Switch game state between running and waiting.
@@ -104,27 +136,29 @@ class Games:
             True if changing the game state succeeded, False if not
 
         """
-        if jid not in self.games:
+        if jid.bare not in self.games or jid.resource not in self.games[jid.bare]:
             logging.warning("Tried to change state for non-existent game %s", jid)
             return False
 
+        game = self.games[jid.bare][jid.resource]
+
         try:
-            if self.games[jid]['nbp-init'] > data['nbp']:
+            if game['nbp-init'] > data['nbp']:
                 logging.debug("change game (%s) state from %s to %s", jid,
-                              self.games[jid]['state'], 'waiting')
-                self.games[jid]['state'] = 'waiting'
+                              game['state'], 'waiting')
+                game['state'] = 'waiting'
             else:
                 logging.debug("change game (%s) state from %s to %s", jid,
-                              self.games[jid]['state'], 'running')
-                self.games[jid]['state'] = 'running'
-            self.games[jid]['nbp'] = data['nbp']
-            self.games[jid]['players'] = data['players']
+                              game['state'], 'running')
+                game['state'] = 'running'
+            game['nbp'] = data['nbp']
+            game['players'] = data['players']
         except (KeyError, ValueError):
             logging.warning("Received invalid data for change game state from 0ad: %s", data)
             return False
         else:
-            if 'startTime' not in self.games[jid]:
-                self.games[jid]['startTime'] = str(round(time.time()))
+            if 'startTime' not in game:
+                game['startTime'] = str(round(time.time()))
             return True
 
 
@@ -188,9 +222,6 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         if nick == self.nick:
             return
 
-        if jid.resource not in ['0ad', 'CC']:
-            return
-
         self._send_game_list(jid)
 
         logging.debug("Client '%s' connected with a nick '%s'.", jid, nick)
@@ -212,7 +243,7 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         if nick == self.nick:
             return
 
-        if self.games.remove_game(jid):
+        if self.games.remove_all_games_for_jid(jid):
             self._send_game_list()
 
         logging.debug("Client '%s' with nick '%s' disconnected", jid, nick)
@@ -241,9 +272,6 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
             iq (sleekxmpp.stanza.iq.IQ): Received IQ stanza
 
         """
-        if iq['from'].resource != '0ad':
-            return
-
         success = False
 
         command = iq['gamelist']['command']
@@ -280,8 +308,8 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         games = self.games.get_all_games()
 
         stanza = GameListXmppPlugin()
-        for jid in games:
-            stanza.add_game(games[jid])
+        for game in games:
+            stanza.add_game(game)
 
         if not to:
             for nick in self.plugin['xep_0045'].getRoster(self.room):
