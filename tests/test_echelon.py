@@ -44,9 +44,9 @@ class TestLeaderboard(TestCase):
 
     def test_create_player(self):
         """Test creating a new player."""
-        player = self.leaderboard.get_or_create_player(JID('john@localhost'))
+        player = self.leaderboard.get_or_create_player(JID('john@localhost/0ad-123456'))
         self.assertEqual(player.id, 1)
-        self.assertEqual(player.jid, 'john@localhost')
+        self.assertEqual(player.jid, 'john@localhost/0ad-123456')
         self.assertEqual(player.rating, -1)
         self.assertEqual(player.highest_rating, None)
         self.assertEqual(player.games, [])
@@ -55,13 +55,13 @@ class TestLeaderboard(TestCase):
 
     def test_get_profile_no_player(self):
         """Test profile retrieval for not existing player."""
-        profile = self.leaderboard.get_profile(JID('john@localhost'))
+        profile = self.leaderboard.get_profile(JID('john@localhost/0ad-123456'))
         self.assertEqual(profile, {})
 
     def test_get_profile_player_without_games(self):
         """Test profile retrieval for existing player."""
-        self.leaderboard.get_or_create_player(JID('john@localhost'))
-        profile = self.leaderboard.get_profile(JID('john@localhost'))
+        self.leaderboard.get_or_create_player(JID('john@localhost/0ad-123456'))
+        profile = self.leaderboard.get_profile(JID('john@localhost/0ad-123456'))
         self.assertDictEqual(profile, {'highestRating': None, 'losses': 0, 'totalGamesPlayed': 0,
                                        'wins': 0})
 

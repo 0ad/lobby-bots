@@ -185,10 +185,7 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         nick = str(presence['muc']['nick'])
         jid = sleekxmpp.jid.JID(presence['muc']['jid'])
 
-        if nick == self.nick:
-            return
-
-        if jid.resource not in ['0ad', 'CC']:
+        if not jid.resource.startswith('0ad'):
             return
 
         self._send_game_list(jid)
@@ -209,7 +206,7 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         nick = str(presence['muc']['nick'])
         jid = sleekxmpp.jid.JID(presence['muc']['jid'])
 
-        if nick == self.nick:
+        if not jid.resource.startswith('0ad'):
             return
 
         if self.games.remove_game(jid):
@@ -241,7 +238,7 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
             iq (sleekxmpp.stanza.iq.IQ): Received IQ stanza
 
         """
-        if iq['from'].resource != '0ad':
+        if not iq['from'].resource.startswith('0ad'):
             return
 
         success = False
@@ -285,10 +282,12 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
 
         if not to:
             for nick in self.plugin['xep_0045'].getRoster(self.room):
-                if nick == self.nick:
-                    continue
                 jid_str = self.plugin['xep_0045'].getJidProperty(self.room, nick, 'jid')
                 jid = sleekxmpp.jid.JID(jid_str)
+
+                if not jid.resource.startswith('0ad'):
+                    continue
+
                 iq = self.make_iq_result(ito=jid)
                 iq.set_payload(stanza)
                 try:
