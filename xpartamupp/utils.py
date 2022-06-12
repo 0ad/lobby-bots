@@ -31,7 +31,7 @@ class LimitedSizeDict(OrderedDict):
         OrderedDict.__init__(self, *args, **kwargs)
         self._check_size_limit()
 
-    def __setitem__(self, key, value):  # pylint: disable=signature-differs
+    def __setitem__(self, key, value):
         """Overwrite default method to add size limit check."""
         OrderedDict.__setitem__(self, key, value)
         self._check_size_limit()

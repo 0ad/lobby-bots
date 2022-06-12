@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
 
-# pylint: disable=no-self-use
-
 """Tests for EcheLOn."""
 
 import sys
@@ -58,7 +56,7 @@ class TestLeaderboard(TestCase):
     def test_get_profile_no_player(self):
         """Test profile retrieval for not existing player."""
         profile = self.leaderboard.get_profile(JID('john@localhost'))
-        self.assertEqual(profile, dict())
+        self.assertEqual(profile, {})
 
     def test_get_profile_player_without_games(self):
         """Test profile retrieval for existing player."""
