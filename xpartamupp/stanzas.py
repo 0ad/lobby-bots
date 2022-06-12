@@ -63,7 +63,7 @@ class GameListXmppPlugin(ElementBase):
         """
         try:
             del data['ip']  # Don't send the IP address with the gamelist.
-        except Exception:
+        except KeyError:
             pass
 
         self.xml.append(ET.Element('game', data))

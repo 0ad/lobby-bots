@@ -14,8 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
 
-# pylint: disable=no-self-use
-
 """Tests for XPartaMuPP."""
 
 import sys
@@ -74,7 +72,7 @@ class TestGames(TestCase):
         games.remove_game(jid1)
         self.assertDictEqual(games.get_all_games(), {jid2: game_data2})
         games.remove_game(jid2)
-        self.assertDictEqual(games.get_all_games(), dict())
+        self.assertDictEqual(games.get_all_games(), {})
 
     def test_remove_unknown(self):
         """Test removal of a game, which doesn't exist."""
