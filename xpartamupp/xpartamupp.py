@@ -18,16 +18,17 @@
 """0ad XMPP-bot responsible for managing game listings."""
 
 import argparse
+import asyncio
 import logging
 import sys
 import time
 
-import sleekxmpp
-
-from sleekxmpp.stanza import Iq
-from sleekxmpp.xmlstream.handler import Callback
-from sleekxmpp.xmlstream.matcher import StanzaPath
-from sleekxmpp.xmlstream.stanzabase import register_stanza_plugin
+from slixmpp import ClientXMPP
+from slixmpp.jid import JID
+from slixmpp.stanza import Iq
+from slixmpp.xmlstream.handler import Callback
+from slixmpp.xmlstream.matcher import StanzaPath
+from slixmpp.xmlstream.stanzabase import register_stanza_plugin
 
 from xpartamupp.stanzas import GameListXmppPlugin
 from xpartamupp.utils import LimitedSizeDict
@@ -44,8 +45,7 @@ class Games:
         """Add a game.
 
         Arguments:
-            jid (sleekxmpp.jid.JID): JID of the player who started the
-                game
+            jid (JID): JID of the player who started the game
             data (dict): information about the game
 
         Returns:
@@ -67,8 +67,7 @@ class Games:
         """Remove a game attached to a JID.
 
         Arguments:
-            jid (sleekxmpp.jid.JID): JID of the player whose game to
-                remove.
+            jid (JID): JID of the player whose game to remove.
 
         Returns:
             True if removing the game succeeded, False if not
@@ -96,8 +95,7 @@ class Games:
         """Switch game state between running and waiting.
 
         Arguments:
-            jid (sleekxmpp.jid.JID): JID of the player whose game to
-                change
+            jid (JID): JID of the player whose game to change
             data (dict): information about the game
 
         Returns:
@@ -128,20 +126,20 @@ class Games:
             return True
 
 
-class XpartaMuPP(sleekxmpp.ClientXMPP):
+class XpartaMuPP(ClientXMPP):
     """Main class which handles IQ data and sends new data."""
 
     def __init__(self, sjid, password, room, nick):
         """Initialize XpartaMuPP.
 
         Arguments:
-             sjid (sleekxmpp.jid.JID): JID to use for authentication
+             sjid (JID): JID to use for authentication
              password (str): password to use for authentication
-             room (str): XMPP MUC room to join
+             room (JID): XMPP MUC room to join
              nick (str): Nick to use in MUC
 
         """
-        sleekxmpp.ClientXMPP.__init__(self, sjid, password)
+        super().__init__(sjid, password)
         self.whitespace_keepalive = False
 
         self.room = room
@@ -158,15 +156,16 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         self.add_event_handler('muc::%s::got_online' % self.room, self._muc_online)
         self.add_event_handler('muc::%s::got_offline' % self.room, self._muc_offline)
         self.add_event_handler('groupchat_message', self._muc_message)
+        self.add_event_handler('disconnected', lambda _: self.connect())
 
-    def _session_start(self, event):  # pylint: disable=unused-argument
+    async def _session_start(self, event):  # pylint: disable=unused-argument
         """Join MUC channel and announce presence.
 
         Arguments:
             event (dict): empty dummy dict
 
         """
-        self.plugin['xep_0045'].joinMUC(self.room, self.nick)
+        await self.plugin['xep_0045'].join_muc_wait(self.room, self.nick)
         self.send_presence()
         self.get_roster()
         logging.info("XpartaMuPP started")
@@ -178,12 +177,12 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         are currently there.
 
         Arguments:
-            presence (sleekxmpp.stanza.presence.Presence): Received
+            presence (slixmpp.stanza.presence.Presence): Received
                 presence stanza.
 
         """
         nick = str(presence['muc']['nick'])
-        jid = sleekxmpp.jid.JID(presence['muc']['jid'])
+        jid = JID(presence['muc']['jid'])
 
         if not jid.resource.startswith('0ad'):
             return
@@ -199,12 +198,12 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         don't end up with stale games.
 
         Arguments:
-            presence (sleekxmpp.stanza.presence.Presence): Received
+            presence (slixmpp.stanza.presence.Presence): Received
                 presence stanza.
 
         """
         nick = str(presence['muc']['nick'])
-        jid = sleekxmpp.jid.JID(presence['muc']['jid'])
+        jid = JID(presence['muc']['jid'])
 
         if not jid.resource.startswith('0ad'):
             return
@@ -221,7 +220,7 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         informative message.
 
         Arguments:
-            msg (sleekxmpp.stanza.message.Message): Received MUC
+            msg (slixmpp.stanza.message.Message): Received MUC
                 message
         """
         if msg['mucnick'] != self.nick and self.nick.lower() in msg['body'].lower():
@@ -235,7 +234,7 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         """Handle game state change requests.
 
         Arguments:
-            iq (sleekxmpp.stanza.iq.IQ): Received IQ stanza
+            iq (IQ): Received IQ stanza
 
         """
         if not iq['from'].resource.startswith('0ad'):
@@ -253,7 +252,7 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         else:
             logging.info('Received unknown game command: "%s"', command)
 
-        iq.reply(clear=not success)
+        iq = iq.reply(clear=not success)
         if not success:
             iq['error']['condition'] = "undefined-condition"
         iq.send()
@@ -271,7 +270,7 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
         clients.
 
         Arguments:
-            to (sleekxmpp.jid.JID): Player to send the game list to.
+            to (JID): Player to send the game list to.
                 If None, the game list will be broadcasted
         """
         games = self.games.get_all_games()
@@ -281,9 +280,8 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
             stanza.add_game(games[jid])
 
         if not to:
-            for nick in self.plugin['xep_0045'].getRoster(self.room):
-                jid_str = self.plugin['xep_0045'].getJidProperty(self.room, nick, 'jid')
-                jid = sleekxmpp.jid.JID(jid_str)
+            for nick in self.plugin['xep_0045'].get_roster(self.room):
+                jid = JID(self.plugin['xep_0045'].get_jid_property(self.room, nick, 'jid'))
 
                 if not jid.resource.startswith('0ad'):
                     continue
@@ -291,14 +289,14 @@ class XpartaMuPP(sleekxmpp.ClientXMPP):
                 iq = self.make_iq_result(ito=jid)
                 iq.set_payload(stanza)
                 try:
-                    iq.send(block=False)
+                    iq.send()
                 except Exception:
                     logging.exception("Failed to send game list to %s", jid)
         else:
             iq = self.make_iq_result(ito=to)
             iq.set_payload(stanza)
             try:
-                iq.send(block=False)
+                iq.send()
             except Exception:
                 logging.exception("Failed to send game list to %s", to)
 
@@ -348,18 +346,20 @@ def main():
                         format='%(asctime)s %(levelname)-8s %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S')
 
-    xmpp = XpartaMuPP(sleekxmpp.jid.JID('%s@%s/%s' % (args.login, args.domain, 'CC')),
-                      args.password, args.room + '@conference.' + args.domain, args.nickname)
+    xmpp = XpartaMuPP(JID('%s@%s/%s' % (args.login, args.domain, 'CC')), args.password,
+                      JID(args.room + '@conference.' + args.domain), args.nickname)
     xmpp.register_plugin('xep_0030')  # Service Discovery
     xmpp.register_plugin('xep_0004')  # Data Forms
     xmpp.register_plugin('xep_0045')  # Multi-User Chat
     xmpp.register_plugin('xep_0060')  # Publish-Subscribe
     xmpp.register_plugin('xep_0199', {'keepalive': True})  # XMPP Ping
 
-    if xmpp.connect((args.xserver, 5222) if args.xserver else None, True, not args.xdisabletls):
-        xmpp.process()
+    if args.xserver:
+        xmpp.connect((args.xserver, 5222))
     else:
-        logging.error("Unable to connect")
+        xmpp.connect(None, True, not args.xdisabletls)
+
+    asyncio.get_event_loop().run_forever()
 
 
 if __name__ == '__main__':

@@ -78,19 +78,19 @@ The version requirement for ejabberd is 17.03 or later (due to the ipstamp modul
 
 You should now be able to connect to this XMPP server using any XMPP client.
 
-### 1.2 Install python3 and SleekXMPP
+### 1.2 Install Python and Slixmpp
 
-* The lobby bots are implemented in Python 3 and use SleekXMPP to connect to the lobby. Right now
+* The lobby bots are implemented in Python 3 and use Slixmpp to connect to the lobby. Right now
   only Python 3.7 is supported. Install these dependencies using:
 
     ```
-    $ apt-get install python3.7 python3-sleekxmpp
+    $ apt-get install python3 python3-slixmpp
     ```
 
-* Confirm that the SleekXmpp version is 1.3.1 or later:
+* Confirm that Slixmpp is installed:
 
     ```
-    pip3 show sleekxmpp
+    pip3 show slixmpp
     ```
 
 * If you would like to run the rating bot, you will need to install SQLAlchemy for python3:

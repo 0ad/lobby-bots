@@ -23,7 +23,7 @@ from unittest import TestCase
 from unittest.mock import Mock, call, patch
 
 from parameterized import parameterized
-from sleekxmpp.jid import JID
+from slixmpp.jid import JID
 
 from xpartamupp.xpartamupp import Games, main, parse_args
 
@@ -150,7 +150,8 @@ class TestMain(TestCase):
     def test_success(self):
         """Test successful execution."""
         with patch('xpartamupp.xpartamupp.parse_args') as args_mock, \
-                patch('xpartamupp.xpartamupp.XpartaMuPP') as xmpp_mock:
+                patch('xpartamupp.xpartamupp.XpartaMuPP') as xmpp_mock, \
+                patch('xpartamupp.xpartamupp.asyncio') as asyncio_mock:
             args_mock.return_value = Mock(log_level=30, login='xpartamupp',
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='WFGBot',
@@ -162,23 +163,5 @@ class TestMain(TestCase):
                                                           call('xep_0199', {'keepalive': True})],
                                                          any_order=True)
             xmpp_mock().connect.assert_called_once_with(None, True, True)
-            xmpp_mock().process.assert_called_once_with()
-
-    def test_failing_connect(self):
-        """Test failing connect to XMPP server."""
-        with patch('xpartamupp.xpartamupp.parse_args') as args_mock, \
-                patch('xpartamupp.xpartamupp.XpartaMuPP') as xmpp_mock:
-            args_mock.return_value = Mock(log_level=30, login='xpartamupp',
-                                          domain='lobby.wildfiregames.com', password='XXXXXX',
-                                          room='arena', nickname='WFGBot',
-                                          xserver=None, xdisabletls=False)
-
-            xmpp_mock().connect.return_value = False
-            main()
-            args_mock.assert_called_once_with(sys.argv[1:])
-            xmpp_mock().register_plugin.assert_has_calls([call('xep_0004'), call('xep_0030'),
-                                                          call('xep_0045'), call('xep_0060'),
-                                                          call('xep_0199', {'keepalive': True})],
-                                                         any_order=True)
-            xmpp_mock().connect.assert_called_once_with(None, True, True)
-            xmpp_mock().process.assert_not_called()
+            asyncio_mock.get_event_loop.assert_called_once_with()
+            asyncio_mock.get_event_loop.return_value.run_forever_assert_called_once_with()
