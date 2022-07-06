@@ -30,7 +30,7 @@ repos:
           - --diff
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.2.0
+    rev: v1.3.0
     hooks:
       - id: forbid-crlf
       - id: forbid-tabs
@@ -48,7 +48,7 @@ repos:
           - .
 
   - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
-    rev: v1.2.4
+    rev: v1.3.0
     hooks:
       - id: python-safety-dependencies-check
 
