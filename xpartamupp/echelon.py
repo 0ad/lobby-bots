@@ -69,7 +69,7 @@ class Leaderboard:
             supplied JID
 
         """
-        player = self.db.query(Player).filter(Player.jid.ilike(str(jid))).first()
+        player = self.db.query(Player).filter(func.lower(Player.jid) == str(jid).lower()).first()
         if player:
             return player
 
@@ -92,7 +92,7 @@ class Leaderboard:
 
         """
         stats = {}
-        player = self.db.query(Player).filter(Player.jid.ilike(str(jid))).first()
+        player = self.db.query(Player).filter(func.lower(Player.jid) == str(jid).lower()).first()
 
         if not player:
             logging.debug("Couldn't find profile for player %s", jid)
@@ -184,7 +184,8 @@ class Leaderboard:
         game = Game(map=game_report['mapName'], duration=int(game_report['timeElapsed']),
                     teamsLocked=bool(game_report['teamsLocked']), matchID=game_report['matchID'])
         game.player_info.extend(player_infos)
-        game.winner = self.db.query(Player).filter(Player.jid.ilike(str(winning_jid))).first()
+        game.winner = self.db.query(Player).filter(
+            func.lower(Player.jid) == str(winning_jid).lower()).first()
         self.db.add(game)
         self.db.commit()
         return game
