@@ -53,6 +53,33 @@ class TestLeaderboard(TestCase):
         self.assertEqual(player.games_info, [])
         self.assertEqual(player.games_won, [])
 
+    def test_create_player_with_casing(self):
+        """Test creating players with different casing.
+
+        When calling get_or_create_player once with the player name in
+        lowercase and once in uppercase should result in the same player
+        object, as player names are supposed to be case-insensitive.
+        """
+        player1 = self.leaderboard.get_or_create_player(JID('john@localhost'))
+        player2 = self.leaderboard.get_or_create_player(JID('JOHN@localhost'))
+        self.assertEqual(player1, player2)
+
+    def test_create_player_with_special_chars(self):
+        """Test creating players with special characters.
+
+        Test that creating players whose nicks only differ by allowed
+        special characters result in different items in the leaderboard
+        database.
+        """
+        player = self.leaderboard.get_or_create_player(JID('john@localhost'))
+        self.assertEqual(player.id, 1)
+        player = self.leaderboard.get_or_create_player(JID('joh.@localhost'))
+        self.assertEqual(player.id, 2)
+        player = self.leaderboard.get_or_create_player(JID('joh_@localhost'))
+        self.assertEqual(player.id, 3)
+        player = self.leaderboard.get_or_create_player(JID('joh-@localhost'))
+        self.assertEqual(player.id, 4)
+
     def test_get_profile_no_player(self):
         """Test profile retrieval for not existing player."""
         profile = self.leaderboard.get_profile(JID('john@localhost'))
@@ -64,6 +91,31 @@ class TestLeaderboard(TestCase):
         profile = self.leaderboard.get_profile(JID('john@localhost'))
         self.assertDictEqual(profile, {'highestRating': None, 'losses': 0, 'totalGamesPlayed': 0,
                                        'wins': 0})
+
+    def test_get_profile_ambiguous_player(self):
+        """Test profile retrieval if similar player exists.
+
+        This is a regression test to ensure special characters in player
+        names get handled properly when retrieving player profiles.
+        """
+        self.leaderboard.get_or_create_player(JID('john@localhost'))
+        profile = self.leaderboard.get_profile(JID('joh.@localhost'))
+        self.assertEqual(profile, {})
+        profile = self.leaderboard.get_profile(JID('joh_@localhost'))
+        self.assertEqual(profile, {})
+        profile = self.leaderboard.get_profile(JID('joh-@localhost'))
+        self.assertEqual(profile, {})
+
+    def test_get_profile_with_casing(self):
+        """Test profile retrieval with case differences.
+
+        Test that the same profile gets returned, no matter whether the
+        player name is provided as lower case or upper case.
+        """
+        self.leaderboard.get_or_create_player(JID('john@localhost'))
+        profile1 = self.leaderboard.get_profile(JID('john@localhost'))
+        profile2 = self.leaderboard.get_profile(JID('JOHN@localhost'))
+        self.assertEqual(profile1, profile2)
 
 
 class TestArgumentParsing(TestCase):
