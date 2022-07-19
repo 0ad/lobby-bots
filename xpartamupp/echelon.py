@@ -92,7 +92,7 @@ class Leaderboard:
 
         """
         stats = {}
-        player = self.db.query(Player).filter(func.lower(Player.jid) == str(jid)).first()
+        player = self.db.query(Player).filter(func.lower(Player.jid) == str(jid).lower()).first()
 
         if not player:
             logging.debug("Couldn't find profile for player %s", jid)
