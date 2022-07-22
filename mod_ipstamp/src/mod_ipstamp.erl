@@ -15,19 +15,23 @@
 %% along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
 
 -module(mod_ipstamp).
-
--behaviour(gen_mod).
-
--include("ejabberd.hrl").
+-author("wildfiregames.com").
 -include("logger.hrl").
 -include("xmpp.hrl").
+
+%% Do not need to call gen_mod since we are not using it
+%% at the moment, uncomment when needed but also must
+%% export mod_doc/0 incase theres a need to use gen_mod
+%% -behaviour(gen_mod).
 
 -export([start/2,
          stop/1,
          depends/2,
          mod_opt_type/1,
+         mod_options/1,
          reload/3,
          on_filter_packet/1]).
+
 
 start(_Host, _Opts) ->
     ejabberd_hooks:add(filter_packet, global, ?MODULE, on_filter_packet, 50).
@@ -37,7 +41,20 @@ stop(_Host) ->
 
 depends(_Host, _Opts) -> [].
 
+mod_options(_Host) -> [].
+
 mod_opt_type(_) -> [].
+
+%% unused mod_doc since gen_mod is disabled
+%%-----------------
+%% mod_doc() ->
+%%  #{}.
+%%----------------
+
+%% ---------------------
+%% Task management
+%% ---------------------
+
 
 reload(_Host, _NewOpts, _OldOpts) -> ok.
 
@@ -70,3 +87,4 @@ on_filter_packet(#iq{type = set, to = To, sub_els = [SubEl]} = Input) ->
 
 on_filter_packet(Input) ->
   Input.
+  
