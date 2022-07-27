@@ -15,11 +15,8 @@
 %% along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.
 
 -module(mod_ipstamp).
--author("wildfiregames.com").
 -include("logger.hrl").
 -include("xmpp.hrl").
-
-
 -behaviour(gen_mod).
 
 -export([start/2,
