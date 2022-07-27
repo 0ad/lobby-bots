@@ -19,10 +19,8 @@
 -include("logger.hrl").
 -include("xmpp.hrl").
 
-%% Do not need to call gen_mod since we are not using it
-%% at the moment, uncomment when needed but also must
-%% export mod_doc/0 incase theres a need to use gen_mod
-%% -behaviour(gen_mod).
+
+-behaviour(gen_mod).
 
 -export([start/2,
          stop/1,
@@ -30,6 +28,7 @@
          mod_opt_type/1,
          mod_options/1,
          reload/3,
+         mod_doc/0,
          on_filter_packet/1]).
 
 
@@ -45,11 +44,10 @@ mod_options(_Host) -> [].
 
 mod_opt_type(_) -> [].
 
-%% unused mod_doc since gen_mod is disabled
-%%-----------------
-%% mod_doc() ->
-%%  #{}.
-%%----------------
+
+  mod_doc() ->
+   #{}.
+
 
 %% ---------------------
 %% Task management
