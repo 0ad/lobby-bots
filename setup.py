@@ -24,7 +24,6 @@ setup(
     },
     install_requires=[
         'defusedxml',
-        'dnspython',
         'slixmpp>=1.8.0',
         'sqlalchemy>=1.4.0',
     ],
