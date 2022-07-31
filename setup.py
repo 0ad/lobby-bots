@@ -25,7 +25,7 @@ setup(
     install_requires=[
         'dnspython',
         'sleekxmpp',
-        'sqlalchemy',
+        'sqlalchemy>=1.4.0',
     ],
     extras_require={'tests': TEST_REQUIREMENTS},
     tests_require=TEST_REQUIREMENTS,
