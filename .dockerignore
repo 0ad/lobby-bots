@@ -1,0 +1,13 @@
+.eggs/
+.git/
+.idea/
+.hypothesis/
+.mypy_cache/
+.tox/
+
+*.egg-info/
+
+.coverage
+.coverage.*
+
+build/
