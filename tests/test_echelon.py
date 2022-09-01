@@ -20,7 +20,7 @@ import sys
 
 from argparse import Namespace
 from unittest import TestCase
-from unittest.mock import Mock, call, patch
+from unittest.mock import MagicMock, call, patch
 
 from parameterized import parameterized
 from sleekxmpp.jid import JID
@@ -191,7 +191,7 @@ class TestMain(TestCase):
         with patch('xpartamupp.echelon.parse_args') as args_mock, \
                 patch('xpartamupp.echelon.Leaderboard') as leaderboard_mock, \
                 patch('xpartamupp.echelon.EcheLOn') as xmpp_mock:
-            args_mock.return_value = Mock(log_level=30, login='EcheLOn',
+            args_mock.return_value = MagicMock(log_level=30, login='EcheLOn',
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='RatingsBot',
                                           database_url='sqlite:///lobby_rankings.sqlite3',
@@ -211,7 +211,7 @@ class TestMain(TestCase):
         with patch('xpartamupp.echelon.parse_args') as args_mock, \
                 patch('xpartamupp.echelon.Leaderboard') as leaderboard_mock, \
                 patch('xpartamupp.echelon.EcheLOn') as xmpp_mock:
-            args_mock.return_value = Mock(log_level=30, login='EcheLOn',
+            args_mock.return_value = MagicMock(log_level=30, login='EcheLOn',
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='RatingsBot',
                                           database_url='sqlite:///lobby_rankings.sqlite3',

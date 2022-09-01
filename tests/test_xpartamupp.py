@@ -20,7 +20,7 @@ import sys
 
 from argparse import Namespace
 from unittest import TestCase
-from unittest.mock import Mock, call, patch
+from unittest.mock import MagicMock, call, patch
 
 from parameterized import parameterized
 from sleekxmpp.jid import JID
@@ -151,7 +151,7 @@ class TestMain(TestCase):
         """Test successful execution."""
         with patch('xpartamupp.xpartamupp.parse_args') as args_mock, \
                 patch('xpartamupp.xpartamupp.XpartaMuPP') as xmpp_mock:
-            args_mock.return_value = Mock(log_level=30, login='xpartamupp',
+            args_mock.return_value = MagicMock(log_level=30, login='xpartamupp',
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='WFGBot',
                                           xserver=None, xdisabletls=False)
@@ -168,7 +168,7 @@ class TestMain(TestCase):
         """Test failing connect to XMPP server."""
         with patch('xpartamupp.xpartamupp.parse_args') as args_mock, \
                 patch('xpartamupp.xpartamupp.XpartaMuPP') as xmpp_mock:
-            args_mock.return_value = Mock(log_level=30, login='xpartamupp',
+            args_mock.return_value = MagicMock(log_level=30, login='xpartamupp',
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='WFGBot',
                                           xserver=None, xdisabletls=False)

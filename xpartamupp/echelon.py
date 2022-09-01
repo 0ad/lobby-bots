@@ -21,6 +21,7 @@
 import argparse
 import difflib
 import logging
+from os import environ
 import sys
 
 from collections import deque
@@ -786,6 +787,12 @@ def parse_args(args):
 def main():
     """Entry point a console script."""
     args = parse_args(sys.argv[1:])
+
+    # Load args from environment variablies
+    vargs = vars(args)
+    for key in vargs:
+      envvar = environ.get(key.upper())
+      vargs[key] = envvar if envvar else vargs[key]
 
     logging.basicConfig(level=args.log_level,
                         format='%(asctime)s %(levelname)-8s %(message)s',
