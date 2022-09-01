@@ -19,6 +19,7 @@
 """0ad XMPP-bot responsible for managing game ratings."""
 
 import argparse
+from code import interact
 import difflib
 import logging
 from os import environ
@@ -808,10 +809,12 @@ def main():
     xmpp.register_plugin('xep_0199', {'keepalive': True})  # XMPP Ping
 
     if xmpp.connect((args.xserver, 5222) if args.xserver else None, True, not args.xdisabletls):
-        xmpp.process()
+        xmpp.process(threaded=True)
     else:
         logging.error("Unable to connect")
 
+    # Start debug console
+    interact(local=dict(globals(), **locals()))
 
 if __name__ == '__main__':
     main()

@@ -190,7 +190,8 @@ class TestMain(TestCase):
         """Test successful execution."""
         with patch('xpartamupp.echelon.parse_args') as args_mock, \
                 patch('xpartamupp.echelon.Leaderboard') as leaderboard_mock, \
-                patch('xpartamupp.echelon.EcheLOn') as xmpp_mock:
+                patch('xpartamupp.echelon.EcheLOn') as xmpp_mock, \
+                patch('xpartamupp.echelon.interact') as interact_mock:
             args_mock.return_value = MagicMock(log_level=30, login='EcheLOn',
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='RatingsBot',
@@ -204,13 +205,14 @@ class TestMain(TestCase):
                                                           call('xep_0199', {'keepalive': True})],
                                                          any_order=True)
             xmpp_mock().connect.assert_called_once_with(None, True, True)
-            xmpp_mock().process.assert_called_once_with()
+            xmpp_mock().process.assert_called_once_with(threaded=True)
 
     def test_failing_connect(self):
         """Test failing connect to XMPP server."""
         with patch('xpartamupp.echelon.parse_args') as args_mock, \
                 patch('xpartamupp.echelon.Leaderboard') as leaderboard_mock, \
-                patch('xpartamupp.echelon.EcheLOn') as xmpp_mock:
+                patch('xpartamupp.echelon.EcheLOn') as xmpp_mock, \
+                patch('xpartamupp.echelon.interact') as interact_mock:
             args_mock.return_value = MagicMock(log_level=30, login='EcheLOn',
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='RatingsBot',
