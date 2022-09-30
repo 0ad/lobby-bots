@@ -19,13 +19,13 @@
 """0ad XMPP-bot responsible for managing game ratings."""
 
 import argparse
-from code import interact
 import difflib
 import logging
-from os import environ
 import sys
 
+from code import interact
 from collections import deque
+from os import environ
 
 import sleekxmpp
 
@@ -792,8 +792,8 @@ def main():
     # Load args from environment variablies
     vargs = vars(args)
     for key in vargs:
-      envvar = environ.get(key.upper())
-      vargs[key] = envvar if envvar else vargs[key]
+        envvar = environ.get(key.upper())
+        vargs[key] = envvar if envvar else vargs[key]
 
     logging.basicConfig(level=args.log_level,
                         format='%(asctime)s %(levelname)-8s %(message)s',
@@ -815,6 +815,7 @@ def main():
 
     # Start debug console
     interact(local=dict(globals(), **locals()))
+
 
 if __name__ == '__main__':
     main()

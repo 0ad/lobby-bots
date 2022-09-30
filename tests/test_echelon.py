@@ -191,12 +191,12 @@ class TestMain(TestCase):
         with patch('xpartamupp.echelon.parse_args') as args_mock, \
                 patch('xpartamupp.echelon.Leaderboard') as leaderboard_mock, \
                 patch('xpartamupp.echelon.EcheLOn') as xmpp_mock, \
-                patch('xpartamupp.echelon.interact') as interact_mock:
+                patch('xpartamupp.echelon.interact'):
             args_mock.return_value = MagicMock(log_level=30, login='EcheLOn',
-                                          domain='lobby.wildfiregames.com', password='XXXXXX',
-                                          room='arena', nickname='RatingsBot',
-                                          database_url='sqlite:///lobby_rankings.sqlite3',
-                                          xserver=None, xdisabletls=False)
+                                               domain='lobby.wildfiregames.com', password='XXXXXX',
+                                               room='arena', nickname='RatingsBot',
+                                               database_url='sqlite:///lobby_rankings.sqlite3',
+                                               xserver=None, xdisabletls=False)
             main()
             args_mock.assert_called_once_with(sys.argv[1:])
             leaderboard_mock.assert_called_once_with('sqlite:///lobby_rankings.sqlite3')
@@ -212,12 +212,12 @@ class TestMain(TestCase):
         with patch('xpartamupp.echelon.parse_args') as args_mock, \
                 patch('xpartamupp.echelon.Leaderboard') as leaderboard_mock, \
                 patch('xpartamupp.echelon.EcheLOn') as xmpp_mock, \
-                patch('xpartamupp.echelon.interact') as interact_mock:
+                patch('xpartamupp.echelon.interact'):
             args_mock.return_value = MagicMock(log_level=30, login='EcheLOn',
-                                          domain='lobby.wildfiregames.com', password='XXXXXX',
-                                          room='arena', nickname='RatingsBot',
-                                          database_url='sqlite:///lobby_rankings.sqlite3',
-                                          xserver=None, xdisabletls=False)
+                                               domain='lobby.wildfiregames.com', password='XXXXXX',
+                                               room='arena', nickname='RatingsBot',
+                                               database_url='sqlite:///lobby_rankings.sqlite3',
+                                               xserver=None, xdisabletls=False)
 
             xmpp_mock().connect.return_value = False
             main()

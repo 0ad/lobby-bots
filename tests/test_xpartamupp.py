@@ -151,11 +151,11 @@ class TestMain(TestCase):
         """Test successful execution."""
         with patch('xpartamupp.xpartamupp.parse_args') as args_mock, \
                 patch('xpartamupp.xpartamupp.XpartaMuPP') as xmpp_mock, \
-                patch('xpartamupp.xpartamupp.interact') as interact_mock:
+                patch('xpartamupp.xpartamupp.interact'):
             args_mock.return_value = MagicMock(log_level=30, login='xpartamupp',
-                                          domain='lobby.wildfiregames.com', password='XXXXXX',
-                                          room='arena', nickname='WFGBot',
-                                          xserver=None, xdisabletls=False)
+                                               domain='lobby.wildfiregames.com', password='XXXXXX',
+                                               room='arena', nickname='WFGBot',
+                                               xserver=None, xdisabletls=False)
             main()
             args_mock.assert_called_once_with(sys.argv[1:])
             xmpp_mock().register_plugin.assert_has_calls([call('xep_0004'), call('xep_0030'),
@@ -169,11 +169,11 @@ class TestMain(TestCase):
         """Test failing connect to XMPP server."""
         with patch('xpartamupp.xpartamupp.parse_args') as args_mock, \
                 patch('xpartamupp.xpartamupp.XpartaMuPP') as xmpp_mock, \
-                patch('xpartamupp.xpartamupp.interact') as interact_mock:
+                patch('xpartamupp.xpartamupp.interact'):
             args_mock.return_value = MagicMock(log_level=30, login='xpartamupp',
-                                          domain='lobby.wildfiregames.com', password='XXXXXX',
-                                          room='arena', nickname='WFGBot',
-                                          xserver=None, xdisabletls=False)
+                                               domain='lobby.wildfiregames.com', password='XXXXXX',
+                                               room='arena', nickname='WFGBot',
+                                               xserver=None, xdisabletls=False)
 
             xmpp_mock().connect.return_value = False
             main()
