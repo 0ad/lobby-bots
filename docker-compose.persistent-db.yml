@@ -1,0 +1,7 @@
+---
+services:
+  echelon:
+    volumes:
+      - type: bind
+        source: ./lobby_rankings.sqlite3
+        target: /home/python/lobby_rankings.sqlite3

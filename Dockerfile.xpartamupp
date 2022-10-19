@@ -1,0 +1,14 @@
+FROM python:3.7-slim
+
+RUN groupadd -r -g 999 python && useradd -m -r -u 999 -g python python
+USER python:python
+WORKDIR /home/python
+COPY --chown=python:python . .
+RUN --mount=type=cache,target=/home/python/.cache,uid=999,gid=999 \
+  pip install --user \
+  --progress-bar off \
+  --no-warn-script-location \
+  --disable-pip-version-check .
+
+ENTRYPOINT [ "/home/python/.local/bin/xpartamupp" ]
+CMD ["--debug", "--domain=ejabberd", "--server=ejabberd", "--login=xpartamupp", "--password=xpartamupp"]

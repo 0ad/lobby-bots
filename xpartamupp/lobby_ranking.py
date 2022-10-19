@@ -22,8 +22,8 @@ import argparse
 import sys
 
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
@@ -37,11 +37,9 @@ class Player(Base):
     jid = Column(String(255))
     rating = Column(Integer)
     highest_rating = Column(Integer)
-    games = relationship('Game', secondary='players_info')
-    # These two relations really only exist to satisfy the linkage
-    # between PlayerInfo and Player and Game and player.
-    games_info = relationship('PlayerInfo', backref='player')
-    games_won = relationship('Game', backref='winner')
+    games = association_proxy("games_info", "game")
+    games_info = relationship('PlayerInfo', back_populates='player')
+    games_won = relationship('Game', back_populates='winner')
 
 
 class PlayerInfo(Base):
@@ -52,6 +50,8 @@ class PlayerInfo(Base):
     id = Column(Integer, primary_key=True)
     player_id = Column(Integer, ForeignKey('players.id'))
     game_id = Column(Integer, ForeignKey('games.id'))
+    player = relationship('Player', back_populates='games_info')
+    game = relationship('Game', back_populates='player_info')
     civs = Column(String(20))
     teams = Column(Integer)
     economyScore = Column(Integer)
@@ -140,8 +140,9 @@ class Game(Base):
     teamsLocked = Column(Boolean)
     matchID = Column(String(20))
     winner_id = Column(Integer, ForeignKey('players.id'))
-    player_info = relationship('PlayerInfo', backref='game')
-    players = relationship('Player', secondary='players_info')
+    player_info = relationship('PlayerInfo', back_populates='game')
+    players = association_proxy("player_info", "player")
+    winner = relationship('Player', back_populates='games_won')
 
 
 def parse_args(args):
