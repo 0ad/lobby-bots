@@ -1,0 +1,6 @@
+dnspython
+slixmpp
+sqlalchemy
+flask
+flask_security
+PyMysql

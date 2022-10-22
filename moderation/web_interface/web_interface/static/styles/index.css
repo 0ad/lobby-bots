@@ -1,0 +1,111 @@
+/* Copyright (C) 2022 Wildfire Games.
+# This file is part of 0 A.D.
+#
+# 0 A.D. is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# 0 A.D. is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+ along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.*/
+
+.row {
+     border: solid 1px;
+     border-radius: 5px;
+     padding: 1px;
+     margin: 5px;
+     display: inline-block;
+     box-shadow: 5px 5px 5px rgba(0,0,1,0.2);
+}
+ p {
+     margin:0px;
+}
+.more_text {
+     line-height: 1;
+     padding: 0px;
+}
+.mute_timespan {
+     font-family: arial;
+     font-size: 90%;
+     color: gray;
+     display: inline;
+}
+.sidebar .sidebar_container {
+     overflow: scroll;
+     max-height: 600px;
+     }
+.sidebar {
+     background-color:lightblue;
+     float: right;
+     width: 210px;
+     border-radius:20px;
+     border-bottom-left-radius:10px;
+     border-bottom-right-radius:10px;
+     overflow: hidden;
+}
+.sidebar div.sidebar_container::-webkit-scrollbar {
+  display: none;
+}
+
+.sidebar div.sidebar_container {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.recent_mute {
+     margin:1px;
+     background-color:lightyellow;
+     max-width:190px;
+}
+.recent_mute.inactive{
+    opacity:70%;
+    }
+ div.recent_mute_sidebar:hover p {
+     text-overflow: unset !important;
+     overflow: hidden !important;
+     display: unset !important;
+     max-height: 300px !important;
+}
+ div.recent_mute_sidebar p:hover {
+     text-overflow: notset !important;
+     overflow: notset !important;
+     display: inline !important;
+}
+ div.recent_mute_sidebar:hover {
+     max-height: 300px;
+     margin:2px;
+     height: 110%;
+     transition: max-height 3s;
+}
+ div.recent_mute_sidebar {
+     max-height:100px;
+     transition: max-height 3s;
+}
+ div.recent_mute_sidebar p {
+     text-overflow: ellipsis;
+     overflow: hidden;
+     display: -webkit-box;
+     -webkit-line-clamp: 1;
+     -webkit-box-orient: vertical;
+     white-space: normal;
+}
+ div.active_mute {
+     float:right;
+    background-color:#FFFFCC;
+    border-radius:5px;
+    border: solid 1px lightblue;
+}
+ .item_type {
+     color:gray;
+    font-family:arial;
+    font-size:80%;
+    float:right;
+    border-left:solid 1px black;
+    border-bottom:solid 1px black;
+     margin:0px;
+     border-bottom-left-radius: 5px;
+} 

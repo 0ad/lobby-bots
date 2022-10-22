@@ -1,0 +1,7 @@
+
+[run]
+include = moderation/* web_interface/* chatbot_interface/* chat_monitor/*
+branch = True
+
+[report]
+fail_under = 40

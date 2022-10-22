@@ -1,0 +1,56 @@
+<!-- Copyright (C) 2022 Wildfire Games.
+# This file is part of 0 A.D.
+#
+# 0 A.D. is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# 0 A.D. is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with 0 A.D.  If not, see <http://www.gnu.org/licenses/>.-->
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+    <title>{% if title %}{{ title }} {% endif %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/index.css') }}">
+    <meta name="description" content="{% if description %}{{ description }} {% endif %}" />
+  </head>
+  <body>
+    <div class="basic"> {% include "nav.html" %} {% block nav %}{% endblock %}
+    <div class="sidebar">
+        <!-- Recent activity -->
+        <div style="padding: 10px;text-align:center">Recent Activity</div>
+        <div class="sidebar_container">
+
+        {% block content %} {% for item in content %} <div class="row" style="background-color:lightyellow">
+
+          <div class="more_text recent_mute recent_mute_sidebar {% if not item['active'] %}inactive{% endif %}">
+            <span class='item_type'>mute</span>
+            <a href="{{ item.url }}" class="">{{ item.player.split("@")[0] }}</a>
+            <sub> was muted</sub> {% if item['active'] %} <div class="active_mute">Active&nbsp;</div>{% endif %} <br>
+            <p class="mute_timespan">for {{ item['rounded_duration'] }} {{ item['rounded_start'] }} ago</p>
+            <p class="mute_content">{{ item.content }}</p>
+            <p class="muted_by" style="float:right;font-size:80%;display:inline">
+              <sup>by</sup>
+              <b>{{ item.moderator.split("@")[0] }}</b>
+            </p>
+          </div>
+        </div> {% endfor %} {% endblock %}
+      </div>
+      </div>
+      <div class="content main">
+        <h1>0AD Lobby Moderation</h1>
+      </div>
+      <div class="center">
+        <div class="center"></div>
+      </div>
+    </div>
+  </body>
+</html>

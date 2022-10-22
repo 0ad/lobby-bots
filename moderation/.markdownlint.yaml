@@ -1,0 +1,8 @@
+---
+commands-show-output: false
+default: true
+no-bare-urls: false
+line-length:
+  line_length: 100
+fenced-code-language: false
+no-space-in-emphasis: false
