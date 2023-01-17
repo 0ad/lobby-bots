@@ -559,7 +559,11 @@ class EcheLOn(ClientXMPP):
 
         self._connect_loop_wait_reconnect = self._connect_loop_wait_reconnect * 2 + 1
 
-        self.connect()
+        # disable_starttls is set here only as a workaround for a bug
+        # in Slixmpp and can be removed once that's fixed. See
+        # https://lab.louiz.org/poezio/slixmpp/-/merge_requests/226
+        # for details.
+        self.connect(disable_starttls=None)
 
     def _muc_online(self, presence):
         """Add joining players to the list of players.
