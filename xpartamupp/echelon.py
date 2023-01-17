@@ -24,6 +24,7 @@ import difflib
 import logging
 import sys
 
+from asyncio import Future
 from collections import deque
 
 from slixmpp import ClientXMPP
@@ -485,6 +486,9 @@ class EcheLOn(ClientXMPP):
         super().__init__(sjid, password)
         self.whitespace_keepalive = False
 
+        self.shutdown = Future()
+        self._connect_loop_wait_reconnect = 0
+
         self.sjid = JID(sjid)
         self.room = room
         self.nick = nick
@@ -507,7 +511,8 @@ class EcheLOn(ClientXMPP):
         self.add_event_handler('muc::%s::got_online' % self.room, self._muc_online)
         self.add_event_handler('muc::%s::got_offline' % self.room, self._muc_offline)
         self.add_event_handler('groupchat_message', self._muc_message)
-        self.add_event_handler('disconnected', lambda _: self.connect())
+        self.add_event_handler('failed_all_auth', self._shutdown)
+        self.add_event_handler('disconnected', self._reconnect)
 
     async def _session_start(self, event):  # pylint: disable=unused-argument
         """Join MUC channel and announce presence.
@@ -516,10 +521,45 @@ class EcheLOn(ClientXMPP):
             event (dict): empty dummy dict
 
         """
+        self._connect_loop_wait_reconnect = 0
         await self.plugin['xep_0045'].join_muc_wait(self.room, self.nick)
         self.send_presence()
         self.get_roster()
         logging.info("EcheLOn started")
+
+    async def _shutdown(self, event):  # pylint: disable=unused-argument
+        """Shut down EcheLOn.
+
+        This is used for aborting connection tries in case the
+        configured credentials are wrong, as further connection tries
+        won't succeed in this case.
+
+        Arguments:
+            event (dict): empty dummy dict
+
+        """
+        logging.error("Can't log in. Aborting reconnects.")
+        self.abort()
+        self.shutdown.set_result(True)
+
+    async def _reconnect(self, event):  # pylint: disable=unused-argument
+        """Trigger a reconnection attempt.
+
+        This triggers a reconnection attempt and implements the same
+        back-off behavior as the ClientXMPP.connect() method does to
+        avoid too frequent reconnection tries.
+
+        Arguments:
+            event (dict): empty dummy dict
+
+        """
+        if self._connect_loop_wait_reconnect > 0:
+            self.event('reconnect_delay', self._connect_loop_wait_reconnect)
+            await asyncio.sleep(self._connect_loop_wait_reconnect)
+
+        self._connect_loop_wait_reconnect = self._connect_loop_wait_reconnect * 2 + 1
+
+        self.connect()
 
     def _muc_online(self, presence):
         """Add joining players to the list of players.
@@ -820,7 +860,7 @@ def main():
     else:
         xmpp.connect(None, True, not args.xdisabletls)
 
-    asyncio.get_event_loop().run_forever()
+    asyncio.get_event_loop().run_until_complete(xmpp.shutdown)
 
 
 if __name__ == '__main__':
