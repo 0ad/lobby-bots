@@ -1,3 +1,3 @@
-dnspython
-sleekxmpp
+defusedxml
+slixmpp>=1.8.0
 sqlalchemy>=1.4.0

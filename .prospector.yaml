@@ -1,4 +1,5 @@
 ---
+autodetect: false
 strictness: veryhigh
 doc-warnings: true
 test-warnings: true

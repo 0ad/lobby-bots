@@ -23,7 +23,7 @@ from unittest import TestCase
 from unittest.mock import Mock, call, patch
 
 from parameterized import parameterized
-from sleekxmpp.jid import JID
+from slixmpp.jid import JID
 from sqlalchemy import create_engine
 
 from xpartamupp.echelon import Leaderboard, main, parse_args
@@ -190,7 +190,8 @@ class TestMain(TestCase):
         """Test successful execution."""
         with patch('xpartamupp.echelon.parse_args') as args_mock, \
                 patch('xpartamupp.echelon.Leaderboard') as leaderboard_mock, \
-                patch('xpartamupp.echelon.EcheLOn') as xmpp_mock:
+                patch('xpartamupp.echelon.EcheLOn') as xmpp_mock, \
+                patch('xpartamupp.echelon.asyncio') as asyncio_mock:
             args_mock.return_value = Mock(log_level=30, login='EcheLOn',
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='RatingsBot',
@@ -204,26 +205,5 @@ class TestMain(TestCase):
                                                           call('xep_0199', {'keepalive': True})],
                                                          any_order=True)
             xmpp_mock().connect.assert_called_once_with(None, True, True)
-            xmpp_mock().process.assert_called_once_with()
-
-    def test_failing_connect(self):
-        """Test failing connect to XMPP server."""
-        with patch('xpartamupp.echelon.parse_args') as args_mock, \
-                patch('xpartamupp.echelon.Leaderboard') as leaderboard_mock, \
-                patch('xpartamupp.echelon.EcheLOn') as xmpp_mock:
-            args_mock.return_value = Mock(log_level=30, login='EcheLOn',
-                                          domain='lobby.wildfiregames.com', password='XXXXXX',
-                                          room='arena', nickname='RatingsBot',
-                                          database_url='sqlite:///lobby_rankings.sqlite3',
-                                          xserver=None, xdisabletls=False)
-
-            xmpp_mock().connect.return_value = False
-            main()
-            args_mock.assert_called_once_with(sys.argv[1:])
-            leaderboard_mock.assert_called_once_with('sqlite:///lobby_rankings.sqlite3')
-            xmpp_mock().register_plugin.assert_has_calls([call('xep_0004'), call('xep_0030'),
-                                                          call('xep_0045'), call('xep_0060'),
-                                                          call('xep_0199', {'keepalive': True})],
-                                                         any_order=True)
-            xmpp_mock().connect.assert_called_once_with(None, True, True)
-            xmpp_mock().process.assert_not_called()
+            asyncio_mock.get_event_loop.assert_called_once_with()
+            asyncio_mock.get_event_loop.return_value.run_forever_assert_called_once_with()

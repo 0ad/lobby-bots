@@ -17,12 +17,12 @@ repos:
       - id: forbid-new-submodules
 
   - repo: https://github.com/PyCQA/prospector
-    rev: 1.7.7
+    rev: v1.8.4
     hooks:
       - id: prospector
 
   - repo: https://github.com/PyCQA/isort
-    rev: 5.10.1
+    rev: 5.12.0
     hooks:
       - id: isort
         args:

@@ -23,8 +23,8 @@ setup(
         ]
     },
     install_requires=[
-        'dnspython',
-        'sleekxmpp',
+        'defusedxml',
+        'slixmpp>=1.8.0',
         'sqlalchemy>=1.4.0',
     ],
     extras_require={'tests': TEST_REQUIREMENTS},

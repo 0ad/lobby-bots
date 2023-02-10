@@ -16,7 +16,7 @@
 
 """0ad-specific XMPP-stanzas."""
 
-from sleekxmpp.xmlstream import ET, ElementBase
+from slixmpp.xmlstream import ET, ElementBase
 
 
 class BoardListXmppPlugin(ElementBase):
