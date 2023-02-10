@@ -80,8 +80,8 @@ You should now be able to connect to this XMPP server using any XMPP client.
 
 ### 1.2 Install Python and Slixmpp
 
-* The lobby bots are implemented in Python 3 and use Slixmpp to connect to the lobby. Right now
-  only Python 3.7 is supported. Install these dependencies using:
+* The lobby bots are implemented in Python 3 and use Slixmpp to connect to the lobby. Install
+  the dependencies using:
 
     ```
     $ apt-get install python3 python3-slixmpp
