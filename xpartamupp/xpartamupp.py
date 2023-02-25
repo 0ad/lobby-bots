@@ -400,9 +400,9 @@ def main():
     xmpp.register_plugin('xep_0199', {'keepalive': True})  # XMPP Ping
 
     if args.xserver:
-        xmpp.connect((args.xserver, 5222))
+        xmpp.connect((args.xserver, 5222), disable_starttls=args.xdisabletls)
     else:
-        xmpp.connect(None, True, not args.xdisabletls)
+        xmpp.connect(None, disable_starttls=args.xdisabletls)
 
     asyncio.get_event_loop().run_until_complete(xmpp.shutdown)
 
