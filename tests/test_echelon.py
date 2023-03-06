@@ -204,6 +204,6 @@ class TestMain(TestCase):
                                                           call('xep_0045'), call('xep_0060'),
                                                           call('xep_0199', {'keepalive': True})],
                                                          any_order=True)
-            xmpp_mock().connect.assert_called_once_with(None, True, True)
+            xmpp_mock().connect.assert_called_once_with(None, disable_starttls=False)
             asyncio_mock.get_event_loop.assert_called_once_with()
             asyncio_mock.get_event_loop.return_value.run_forever_assert_called_once_with()
