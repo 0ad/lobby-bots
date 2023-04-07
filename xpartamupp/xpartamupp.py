@@ -320,14 +320,18 @@ class XpartaMuPP(ClientXMPP):
         """
         games = self.games.get_all_games()
 
+        online_jids = []
+        for nick in self.plugin['xep_0045'].get_roster(self.room):
+            online_jids.append(JID(self.plugin['xep_0045'].get_jid_property(self.room, nick,
+                                                                            'jid')))
+
         stanza = GameListXmppPlugin()
         for jid in games:
-            stanza.add_game(games[jid])
+            if jid in online_jids:
+                stanza.add_game(games[jid])
 
         if not to:
-            for nick in self.plugin['xep_0045'].get_roster(self.room):
-                jid = JID(self.plugin['xep_0045'].get_jid_property(self.room, nick, 'jid'))
-
+            for jid in online_jids:
                 if not jid.resource.startswith('0ad'):
                     continue
 
