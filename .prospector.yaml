@@ -4,6 +4,10 @@ strictness: veryhigh
 doc-warnings: true
 test-warnings: true
 
+mccabe:
+  options:
+    max-complexity: 11
+
 pep8:
   options:
     max-line-length: 99
