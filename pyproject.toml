@@ -71,6 +71,7 @@ ignore = [
     "PTH",
     "SIM105",
     "TRY003",
+    "TRY400",
     "UP038"
 ]
 
