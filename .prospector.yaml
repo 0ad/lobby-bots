@@ -16,9 +16,10 @@ pep8:
 
 pylint:
   options:
-    max-args: 6
-    max-attributes: 10
+    max-args: 8
+    max-attributes: 12
     max-line-length: 99
+    max-module-lines: 1250
   disable:
     - C0111
     - C0103
