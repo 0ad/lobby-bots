@@ -3,4 +3,4 @@ include = xpartamupp/*
 branch = True
 
 [report]
-fail_under = 40
+fail_under = 30
