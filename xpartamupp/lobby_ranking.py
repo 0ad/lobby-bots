@@ -19,7 +19,6 @@
 """Database schema used by the XMPP bots to store game information."""
 
 import argparse
-import sys
 
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, create_engine
 from sqlalchemy.ext.associationproxy import association_proxy
@@ -145,11 +144,8 @@ class Game(Base):
     winner = relationship('Player', back_populates='games_won')
 
 
-def parse_args(args):
+def parse_args():
     """Parse command line arguments.
-
-    Arguments:
-        args (dict): Raw command line arguments given to the script
 
     Returns:
          Parsed command line arguments
@@ -161,12 +157,12 @@ def parse_args(args):
                         choices=['create'])
     parser.add_argument('--database-url', help='URL for the leaderboard database',
                         default='sqlite:///lobby_rankings.sqlite3')
-    return parser.parse_args(args)
+    return parser.parse_args()
 
 
 def main():
     """Entry point a console script."""
-    args = parse_args(sys.argv[1:])
+    args = parse_args()
     engine = create_engine(args.database_url)
     if args.action == 'create':
         Base.metadata.create_all(engine)
