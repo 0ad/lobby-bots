@@ -22,7 +22,6 @@ import argparse
 import asyncio
 import difflib
 import logging
-import sys
 
 from asyncio import Future
 from collections import deque
@@ -803,11 +802,8 @@ class EcheLOn(ClientXMPP):
             logging.exception("Failed to send profile to %s", iq['to'])
 
 
-def parse_args(args):
+def parse_args():
     """Parse command line arguments.
-
-    Arguments:
-        args (dict): Raw command line arguments given to the script
 
     Returns:
          Parsed command line arguments
@@ -839,12 +835,12 @@ def parse_args(args):
                         help='Pass this argument to connect without TLS encryption',
                         action='store_true', dest='xdisabletls', default=False)
 
-    return parser.parse_args(args)
+    return parser.parse_args()
 
 
 def main():
     """Entry point a console script."""
-    args = parse_args(sys.argv[1:])
+    args = parse_args()
 
     logging.basicConfig(level=args.log_level,
                         format='%(asctime)s %(levelname)-8s %(message)s',

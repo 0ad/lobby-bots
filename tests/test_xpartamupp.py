@@ -128,7 +128,8 @@ class TestArgumentParsing(TestCase):
     ])
     def test_valid(self, cmd_args, expected_args):
         """Test valid parameter combinations."""
-        self.assertEqual(parse_args(cmd_args), expected_args)
+        with patch.object(sys, 'argv', ['xpartamupp'] + cmd_args):
+            self.assertEqual(parse_args(), expected_args)
 
     @parameterized.expand([
         (['-f'],),
@@ -140,8 +141,8 @@ class TestArgumentParsing(TestCase):
     ])
     def test_invalid(self, cmd_args):
         """Test invalid parameter combinations."""
-        with self.assertRaises(SystemExit):
-            parse_args(cmd_args)
+        with patch.object(sys, 'argv', ['xpartamupp'] + cmd_args), self.assertRaises(SystemExit):
+            parse_args()
 
 
 class TestMain(TestCase):
@@ -157,7 +158,7 @@ class TestMain(TestCase):
                                           room='arena', nickname='WFGBot',
                                           xserver=None, xdisabletls=False)
             main()
-            args_mock.assert_called_once_with(sys.argv[1:])
+            args_mock.assert_called_once_with()
             xmpp_mock().register_plugin.assert_has_calls([call('xep_0004'), call('xep_0030'),
                                                           call('xep_0045'), call('xep_0060'),
                                                           call('xep_0199', {'keepalive': True})],
