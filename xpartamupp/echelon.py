@@ -25,6 +25,7 @@ import logging
 
 from asyncio import Future
 from collections import deque
+from datetime import datetime, timedelta, timezone
 
 from slixmpp import ClientXMPP
 from slixmpp.jid import JID
@@ -43,6 +44,10 @@ from xpartamupp.utils import LimitedSizeDict
 # Rating that new players should be inserted into the
 # database with, before they've played any games.
 LEADERBOARD_DEFAULT_RATING = 1200
+
+# Number of seconds to not respond to mentions after having responded
+# to a mention.
+INFO_MSG_COOLDOWN_SECONDS = 120
 
 
 class Leaderboard:
@@ -495,6 +500,8 @@ class EcheLOn(ClientXMPP):
         self.leaderboard = leaderboard
         self.report_manager = ReportManager(self.leaderboard)
 
+        self.last_info_msg = None
+
         register_stanza_plugin(Iq, BoardListXmppPlugin)
         register_stanza_plugin(Iq, GameReportXmppPlugin)
         register_stanza_plugin(Iq, ProfileXmppPlugin)
@@ -606,18 +613,30 @@ class EcheLOn(ClientXMPP):
         """Process messages in the MUC room.
 
         Respond to messages highlighting the bots name with an
-        informative message.
+        informative message. After responding once, cool down before
+        responding again to avoid spamming info messages when mentioned
+        repeatedly.
 
         Arguments:
             msg (slixmpp.stanza.message.Message): Received MUC
                 message
         """
-        if msg['mucnick'] != self.nick and self.nick.lower() in msg['body'].lower():
-            self.send_message(mto=msg['from'].bare,
-                              mbody="I am just a bot and provide the rating functionality for "
-                                    "this lobby. Please don't disturb me, calculating these "
-                                    "ratings is already difficult enough.",
-                              mtype='groupchat')
+        if msg['mucnick'] == self.nick or self.nick.lower() not in msg['body'].lower():
+            return
+
+        if (
+            self.last_info_msg and
+            self.last_info_msg + timedelta(seconds=INFO_MSG_COOLDOWN_SECONDS) > datetime.now(
+                tz=timezone.utc)
+        ):
+            return
+
+        self.last_info_msg = datetime.now(tz=timezone.utc)
+        self.send_message(mto=msg['from'].bare,
+                          mbody="I am just a bot and provide the rating functionality for this "
+                                "lobby. Please don't disturb me, calculating these ratings is "
+                                "already difficult enough.",
+                          mtype='groupchat')
 
     def _iq_board_list_handler(self, iq):
         """Handle incoming leaderboard list requests.
