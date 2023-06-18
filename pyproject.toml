@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+
+[project]
+name = "xpartamupp"
+description = "Multiplayer lobby bots for Pyrogenesis-based games"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "GNU General Public License v2 or later (GPLv2+)"}
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Games/Entertainment",
+    "Topic :: Internet :: XMPP",
+]
+dependencies = [
+    "defusedxml",
+    "slixmpp>=1.8.0",
+    "sqlalchemy>=1.4.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+tests = [
+    "coverage",
+    "hypothesis",
+    "parameterized",
+]
+
+[tool.setuptools]
+packages = ["xpartamupp"]
+
+[tool.setuptools_scm]
+
+[project.scripts]
+echelon = "xpartamupp.echelon:main"
+echelon-db = "xpartamupp.lobby_ranking:main"
+xpartamupp = "xpartamupp.xpartamupp:main"
+
+[tool.isort]
+line_length = 99
+lines_between_types = 1
