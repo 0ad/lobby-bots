@@ -124,55 +124,47 @@ class TestArgumentParsing(TestCase):
     @parameterized.expand([
         ([],
          Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=30, xserver=None,
-                   xdisabletls=False,
-                   nickname='RatingsBot', password='XXXXXX', room='arena',
+                   no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3', disable_legacy_lists=False)),
         (['--debug'],
          Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=10, xserver=None,
-                   xdisabletls=False,
-                   nickname='RatingsBot', password='XXXXXX', room='arena',
+                   no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3', disable_legacy_lists=False)),
         (['--quiet'],
          Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=40, xserver=None,
-                   xdisabletls=False,
-                   nickname='RatingsBot', password='XXXXXX', room='arena',
+                   no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3', disable_legacy_lists=False)),
         (['--verbose'],
          Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=20, xserver=None,
-                   xdisabletls=False,
-                   nickname='RatingsBot', password='XXXXXX', room='arena',
+                   no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3', disable_legacy_lists=False)),
         (['-m', 'lobby.domain.tld'],
          Namespace(domain='lobby.domain.tld', login='EcheLOn', log_level=30, nickname='RatingsBot',
-                   xserver=None, xdisabletls=False,
-                   password='XXXXXX', room='arena',
+                   xserver=None, no_verify=False, password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3', disable_legacy_lists=False)),
         (['--domain=lobby.domain.tld'],
          Namespace(domain='lobby.domain.tld', login='EcheLOn', log_level=30, nickname='RatingsBot',
-                   xserver=None, xdisabletls=False,
-                   password='XXXXXX', room='arena',
+                   xserver=None, no_verify=False, password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3', disable_legacy_lists=False)),
         (['-m', 'lobby.domain.tld', '-l', 'bot', '-p', '123456', '-n', 'Bot', '-r', 'arena123',
           '-v'],
          Namespace(domain='lobby.domain.tld', login='bot', log_level=20, nickname='Bot',
-                   xserver=None, xdisabletls=False,
-                   password='123456', room='arena123',
+                   xserver=None, no_verify=False, password='123456', room='arena123',
                    database_url='sqlite:///lobby_rankings.sqlite3', disable_legacy_lists=False)),
         (['--domain=lobby.domain.tld', '--login=bot', '--password=123456', '--nickname=Bot',
           '--room=arena123', '--database-url=sqlite:////tmp/db.sqlite3', '--verbose'],
          Namespace(domain='lobby.domain.tld', login='bot', log_level=20, nickname='Bot',
-                   xserver=None, xdisabletls=False,
-                   password='123456', room='arena123',
+                   xserver=None, no_verify=False, password='123456', room='arena123',
                    database_url='sqlite:////tmp/db.sqlite3', disable_legacy_lists=False)),
         (['--disable-legacy-lists'],
          Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=30, xserver=None,
-                   xdisabletls=False,
-                   nickname='RatingsBot', password='XXXXXX', room='arena',
+                   no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3', disable_legacy_lists=True)),
     ])
     def test_valid(self, cmd_args, expected_args):
         """Test valid parameter combinations."""
-        self.assertEqual(parse_args(cmd_args), expected_args)
+        with patch.object(sys, 'argv', ['echelon'] + cmd_args):
+            self.assertEqual(expected_args, parse_args())
 
     @parameterized.expand([
         (['-f'],),
@@ -184,8 +176,8 @@ class TestArgumentParsing(TestCase):
     ])
     def test_invalid(self, cmd_args):
         """Test invalid parameter combinations."""
-        with self.assertRaises(SystemExit):
-            parse_args(cmd_args)
+        with patch.object(sys, 'argv', ['echelon'] + cmd_args), self.assertRaises(SystemExit):
+            parse_args()
 
 
 class TestMain(TestCase):
@@ -201,14 +193,14 @@ class TestMain(TestCase):
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='RatingsBot',
                                           database_url='sqlite:///lobby_rankings.sqlite3',
-                                          xserver=None, xdisabletls=False)
+                                          xserver=None, no_verify=False)
             main()
-            args_mock.assert_called_once_with(sys.argv[1:])
+            args_mock.assert_called_once_with()
             leaderboard_mock.assert_called_once_with('sqlite:///lobby_rankings.sqlite3')
             xmpp_mock().register_plugin.assert_has_calls([call('xep_0004'), call('xep_0030'),
                                                           call('xep_0045'), call('xep_0060'),
                                                           call('xep_0199', {'keepalive': True})],
                                                          any_order=True)
-            xmpp_mock().connect.assert_called_once_with(None, disable_starttls=False)
+            xmpp_mock().connect.assert_called_once_with(None)
             asyncio_mock.get_event_loop.assert_called_once_with()
             asyncio_mock.get_event_loop.return_value.run_forever_assert_called_once_with()

@@ -37,7 +37,8 @@ class TestArgumentParsing(TestCase):
     ])
     def test_valid(self, cmd_args, expected_args):
         """Test valid parameter combinations."""
-        self.assertEqual(parse_args(cmd_args), expected_args)
+        with patch.object(sys, 'argv', ['echelon-db'] + cmd_args):
+            self.assertEqual(parse_args(), expected_args)
 
     @parameterized.expand([
         ([],),
@@ -45,8 +46,8 @@ class TestArgumentParsing(TestCase):
     ])
     def test_missing_action(self, cmd_args):
         """Test invalid parameter combinations."""
-        with self.assertRaises(SystemExit):
-            parse_args(cmd_args)
+        with patch.object(sys, 'argv', ['echelon-db'] + cmd_args), self.assertRaises(SystemExit):
+            parse_args()
 
 
 class TestMain(TestCase):
@@ -62,7 +63,7 @@ class TestMain(TestCase):
             engine_mock = Mock()
             create_engine_mock.return_value = engine_mock
             main()
-            args_mock.assert_called_once_with(sys.argv[1:])
+            args_mock.assert_called_once_with()
             create_engine_mock.assert_called_once_with(
                 'sqlite:///lobby_rankings.sqlite3')
             declarative_base_mock.metadata.create_all.assert_any_call(engine_mock)

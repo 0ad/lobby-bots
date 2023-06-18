@@ -22,10 +22,11 @@ import argparse
 import asyncio
 import difflib
 import logging
-import sys
+import ssl
 
 from asyncio import Future
 from collections import deque
+from datetime import datetime, timedelta, timezone
 
 from slixmpp import ClientXMPP
 from slixmpp.exceptions import IqError
@@ -46,6 +47,10 @@ from xpartamupp.utils import LimitedSizeDict
 # Rating that new players should be inserted into the
 # database with, before they've played any games.
 LEADERBOARD_DEFAULT_RATING = 1200
+
+# Number of seconds to not respond to mentions after having responded
+# to a mention.
+INFO_MSG_COOLDOWN_SECONDS = 120
 
 
 class Leaderboard:
@@ -474,7 +479,8 @@ class ReportManager:
 class EcheLOn(ClientXMPP):
     """Main class which handles IQ data and sends new data."""
 
-    def __init__(self, sjid, password, room, nick, leaderboard, disable_legacy_lists):
+    def __init__(self, sjid, password, room, nick, leaderboard, verify_certificate=True,
+                 disable_legacy_lists=False):
         """Initialize EcheLOn.
 
         Arguments:
@@ -483,6 +489,9 @@ class EcheLOn(ClientXMPP):
              room (JID): XMPP MUC room to join
              nick (str): Nick to use in MUC
              leaderboard (Leaderboard): Leaderboard instance to use
+             verify_certificate (bool): Whether to verify the TLS
+                                        certificate provided by the
+                                        server
              disable_legacy_lists (bool): Whether to use the old way to
                                           provide rating information to
                                           players in addition to using
@@ -490,6 +499,11 @@ class EcheLOn(ClientXMPP):
 
         """
         super().__init__(sjid, password)
+
+        if not verify_certificate:
+            self.ssl_context.check_hostname = False
+            self.ssl_context.verify_mode = ssl.CERT_NONE
+
         self.whitespace_keepalive = False
 
         self.shutdown = Future()
@@ -506,6 +520,8 @@ class EcheLOn(ClientXMPP):
 
         self.leaderboard = leaderboard
         self.report_manager = ReportManager(self.leaderboard)
+
+        self.last_info_msg = None
 
         register_stanza_plugin(Iq, BoardListXmppPlugin)
         register_stanza_plugin(Iq, GameReportXmppPlugin)
@@ -571,11 +587,7 @@ class EcheLOn(ClientXMPP):
 
         self._connect_loop_wait_reconnect = self._connect_loop_wait_reconnect * 2 + 1
 
-        # disable_starttls is set here only as a workaround for a bug
-        # in Slixmpp and can be removed once that's fixed. See
-        # https://lab.louiz.org/poezio/slixmpp/-/merge_requests/226
-        # for details.
-        self.connect(disable_starttls=None)
+        self.connect()
 
     async def _create_pubsub_node(self, node_name, node_config):
         """Create a new PubSub node.
@@ -723,18 +735,30 @@ class EcheLOn(ClientXMPP):
         """Process messages in the MUC room.
 
         Respond to messages highlighting the bots name with an
-        informative message.
+        informative message. After responding once, cool down before
+        responding again to avoid spamming info messages when mentioned
+        repeatedly.
 
         Arguments:
             msg (slixmpp.stanza.message.Message): Received MUC
                 message
         """
-        if msg['mucnick'] != self.nick and self.nick.lower() in msg['body'].lower():
-            self.send_message(mto=msg['from'].bare,
-                              mbody="I am just a bot and provide the rating functionality for "
-                                    "this lobby. Please don't disturb me, calculating these "
-                                    "ratings is already difficult enough.",
-                              mtype='groupchat')
+        if msg['mucnick'] == self.nick or self.nick.lower() not in msg['body'].lower():
+            return
+
+        if (
+            self.last_info_msg and
+            self.last_info_msg + timedelta(seconds=INFO_MSG_COOLDOWN_SECONDS) > datetime.now(
+                tz=timezone.utc)
+        ):
+            return
+
+        self.last_info_msg = datetime.now(tz=timezone.utc)
+        self.send_message(mto=msg['from'].bare,
+                          mbody="I am just a bot and provide the rating functionality for this "
+                                "lobby. Please don't disturb me, calculating these ratings is "
+                                "already difficult enough.",
+                          mtype='groupchat')
 
     def _iq_board_list_handler(self, iq):
         """Handle incoming leaderboard list requests.
@@ -968,11 +992,8 @@ class EcheLOn(ClientXMPP):
             logging.exception("Failed to send profile to %s", iq['to'])
 
 
-def parse_args(args):
+def parse_args():
     """Parse command line arguments.
-
-    Arguments:
-        args (dict): Raw command line arguments given to the script
 
     Returns:
          Parsed command line arguments
@@ -1000,19 +1021,19 @@ def parse_args(args):
                         default='sqlite:///lobby_rankings.sqlite3')
     parser.add_argument('-s', '--server', help='address of the ejabberd server',
                         action='store', dest='xserver', default=None)
-    parser.add_argument('-t', '--disable-tls',
-                        help='Pass this argument to connect without TLS encryption',
-                        action='store_true', dest='xdisabletls', default=False)
+    parser.add_argument('--no-verify',
+                        help="Don't verify the TLS server certificate when connecting",
+                        action='store_true')
     parser.add_argument('--disable-legacy-lists',
                         help='Disable the deprecated pre-PubSub way of sending lists to players.',
                         action='store_true')
 
-    return parser.parse_args(args)
+    return parser.parse_args()
 
 
 def main():
     """Entry point a console script."""
-    args = parse_args(sys.argv[1:])
+    args = parse_args()
 
     logging.basicConfig(level=args.log_level,
                         format='%(asctime)s %(levelname)-8s %(message)s',
@@ -1021,6 +1042,7 @@ def main():
     leaderboard = Leaderboard(args.database_url)
     xmpp = EcheLOn(JID('%s@%s/%s' % (args.login, args.domain, 'CC')), args.password,
                    JID(args.room + '@conference.' + args.domain), args.nickname, leaderboard,
+                   verify_certificate=not args.no_verify,
                    disable_legacy_lists=args.disable_legacy_lists)
     xmpp.register_plugin('xep_0030')  # Service Discovery
     xmpp.register_plugin('xep_0004')  # Data Forms
@@ -1029,9 +1051,9 @@ def main():
     xmpp.register_plugin('xep_0199', {'keepalive': True})  # XMPP Ping
 
     if args.xserver:
-        xmpp.connect((args.xserver, 5222), disable_starttls=args.xdisabletls)
+        xmpp.connect((args.xserver, 5222))
     else:
-        xmpp.connect(None, disable_starttls=args.xdisabletls)
+        xmpp.connect(None)
 
     asyncio.get_event_loop().run_until_complete(xmpp.shutdown)
 
