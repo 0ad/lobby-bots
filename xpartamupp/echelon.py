@@ -22,6 +22,7 @@ import argparse
 import asyncio
 import difflib
 import logging
+import ssl
 
 from asyncio import Future
 from collections import deque
@@ -476,7 +477,7 @@ class ReportManager:
 class EcheLOn(ClientXMPP):
     """Main class which handles IQ data and sends new data."""
 
-    def __init__(self, sjid, password, room, nick, leaderboard):
+    def __init__(self, sjid, password, room, nick, leaderboard, verify_certificate=True):
         """Initialize EcheLOn.
 
         Arguments:
@@ -485,9 +486,17 @@ class EcheLOn(ClientXMPP):
              room (JID): XMPP MUC room to join
              nick (str): Nick to use in MUC
              leaderboard (Leaderboard): Leaderboard instance to use
+             verify_certificate (bool): Whether to verify the TLS
+                                        certificate provided by the
+                                        server
 
         """
         super().__init__(sjid, password)
+
+        if not verify_certificate:
+            self.ssl_context.check_hostname = False
+            self.ssl_context.verify_mode = ssl.CERT_NONE
+
         self.whitespace_keepalive = False
 
         self.shutdown = Future()
@@ -565,11 +574,7 @@ class EcheLOn(ClientXMPP):
 
         self._connect_loop_wait_reconnect = self._connect_loop_wait_reconnect * 2 + 1
 
-        # disable_starttls is set here only as a workaround for a bug
-        # in Slixmpp and can be removed once that's fixed. See
-        # https://lab.louiz.org/poezio/slixmpp/-/merge_requests/226
-        # for details.
-        self.connect(disable_starttls=None)
+        self.connect()
 
     def _muc_online(self, presence):
         """Add joining players to the list of players.
@@ -850,9 +855,9 @@ def parse_args():
                         default='sqlite:///lobby_rankings.sqlite3')
     parser.add_argument('-s', '--server', help='address of the ejabberd server',
                         action='store', dest='xserver', default=None)
-    parser.add_argument('-t', '--disable-tls',
-                        help='Pass this argument to connect without TLS encryption',
-                        action='store_true', dest='xdisabletls', default=False)
+    parser.add_argument('--no-verify',
+                        help="Don't verify the TLS server certificate when connecting",
+                        action='store_true')
 
     return parser.parse_args()
 
@@ -867,7 +872,8 @@ def main():
 
     leaderboard = Leaderboard(args.database_url)
     xmpp = EcheLOn(JID('%s@%s/%s' % (args.login, args.domain, 'CC')), args.password,
-                   JID(args.room + '@conference.' + args.domain), args.nickname, leaderboard)
+                   JID(args.room + '@conference.' + args.domain), args.nickname, leaderboard,
+                   verify_certificate=not args.no_verify)
     xmpp.register_plugin('xep_0030')  # Service Discovery
     xmpp.register_plugin('xep_0004')  # Data Forms
     xmpp.register_plugin('xep_0045')  # Multi-User Chat
@@ -875,9 +881,9 @@ def main():
     xmpp.register_plugin('xep_0199', {'keepalive': True})  # XMPP Ping
 
     if args.xserver:
-        xmpp.connect((args.xserver, 5222), disable_starttls=args.xdisabletls)
+        xmpp.connect((args.xserver, 5222))
     else:
-        xmpp.connect(None, disable_starttls=args.xdisabletls)
+        xmpp.connect(None)
 
     asyncio.get_event_loop().run_until_complete(xmpp.shutdown)
 
