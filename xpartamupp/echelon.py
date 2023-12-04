@@ -29,7 +29,9 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 
 from slixmpp import ClientXMPP
+from slixmpp.exceptions import IqError
 from slixmpp.jid import JID
+from slixmpp.plugins.xep_0004 import Form
 from slixmpp.stanza import Iq
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
@@ -477,7 +479,8 @@ class ReportManager:
 class EcheLOn(ClientXMPP):
     """Main class which handles IQ data and sends new data."""
 
-    def __init__(self, sjid, password, room, nick, leaderboard, verify_certificate=True):
+    def __init__(self, sjid, password, room, nick, leaderboard, verify_certificate=True,
+                 disable_legacy_lists=False):
         """Initialize EcheLOn.
 
         Arguments:
@@ -489,6 +492,10 @@ class EcheLOn(ClientXMPP):
              verify_certificate (bool): Whether to verify the TLS
                                         certificate provided by the
                                         server
+             disable_legacy_lists (bool): Whether to use the old way to
+                                          provide rating information to
+                                          players in addition to using
+                                          PubSub
 
         """
         super().__init__(sjid, password)
@@ -505,6 +512,11 @@ class EcheLOn(ClientXMPP):
         self.sjid = JID(sjid)
         self.room = room
         self.nick = nick
+
+        self.pubsub_jid = JID("pubsub." + self.server)
+        self.pubsub_leaderbord_node = f"0ad#{self.room.local}#boardlist#v1"
+        self.pubsub_ratinglist_node = f"0ad#{self.room.local}#ratinglist#v1"
+        self.legacy_lists_disabled = disable_legacy_lists
 
         self.leaderboard = leaderboard
         self.report_manager = ReportManager(self.leaderboard)
@@ -523,6 +535,7 @@ class EcheLOn(ClientXMPP):
                               self._iq_profile_handler))
 
         self.add_event_handler('session_start', self._session_start)
+        self.add_event_handler('disco_items', self._pubsub_node_disco)
         self.add_event_handler('muc::%s::got_online' % self.room, self._muc_online)
         self.add_event_handler('muc::%s::got_offline' % self.room, self._muc_offline)
         self.add_event_handler('groupchat_message', self._muc_message)
@@ -576,6 +589,108 @@ class EcheLOn(ClientXMPP):
 
         self.connect()
 
+    async def _create_pubsub_node(self, node_name, node_config):
+        """Create a new PubSub node.
+
+        This creates a new PubSub node with the given configuration and
+        checks whether the node got the expected node name assigned.
+
+        Arguments:
+            node_name (str): Desired name of the PubSub node
+            node_config (Form): form with options to send when
+                                creating the node
+        """
+        try:
+            result = await self.plugin['xep_0060'].create_node(jid=self.pubsub_jid,
+                                                               node=node_name,
+                                                               config=node_config)
+        except IqError as exc:
+            logging.error("Creating the PubSub node failed: %s", exc.text)
+        else:
+            if result["pubsub"]["create"]["node"] != node_name:
+                logging.error('Created PubSub node got a different node name ("%s") than '
+                              'expected ("%s")', result["pubsub"]["create"]["node"], node_name)
+
+    async def _check_pubsub_node_config(self, node_name, node_config):
+        """Check the configuration of a PubSub node.
+
+        This checks if the configuration of an existing PubSub node is
+        as expected.
+
+        Arguments:
+            node_name (str): Name of the PubSub node to check
+            node_config (Form): form with options to check the node
+                                configuration against
+        """
+        current_node_config = await self.plugin['xep_0060'].get_node_config(
+            jid=self.pubsub_jid, node=node_name)
+        current_node_config_form: Form = current_node_config["pubsub_owner"]["configure"]["form"]
+
+        differences = {}
+        current_node_config_dict = current_node_config_form.get_values()
+        for key, new_value in node_config.get_values().items():
+            if current_node_config_dict.get(key) != new_value:
+                differences[key] = (new_value, current_node_config_dict.get(key))
+
+        if differences:
+            logging.warning("Existing PubSub node config differs from expected config! This "
+                            "will likely cause the lobby not to behave as expected!")
+            for key, value in differences.items():
+                logging.warning('Current value ("%s") for option "%s" is different than the '
+                                'expected one ("%s")', value[1], key, value[0])
+
+    async def _pubsub_node_disco(self, event):
+        """Handle discovery and creation of PubSub nodes.
+
+        This handles disco responses from the PubSub service to
+        discover the necessary PubSub node for publishing game list
+        information. If the node doesn't exist, it'll be created with
+        the proper configuration. Creation only needs to happen once
+        per node name and can be done manually as well.
+
+        Arguments:
+            event (IQ): Disco response event
+        """
+        if event["from"] != self.pubsub_jid or not event.get("disco_items"):
+            return
+
+        nodes = event["disco_items"]["items"]
+        node_names = [node[1] for node in nodes]
+
+        default_node_config = await self.plugin['xep_0060'].get_node_config(jid=self.pubsub_jid)
+        new_node_config_form: Form = default_node_config["pubsub_owner"]["default"]["form"]
+        new_node_config_form.reply()
+
+        answers = {
+            "pubsub#access_model": "open",
+            "pubsub#deliver_notifications": True,
+            "pubsub#deliver_payloads": True,
+            "pubsub#itemreply": "none",
+            "pubsub#max_payload_size": "250000",  # current maximum for ejabberd
+            "pubsub#notification_type": "normal",
+            "pubsub#notify_config": False,
+            "pubsub#notify_delete": False,
+            "pubsub#notify_retract": False,
+            "pubsub#persist_items": False,
+            "pubsub#presence_based_delivery": True,
+            "pubsub#publish_model": "publishers",
+            "pubsub#purge_offline": False,
+            "pubsub#send_last_published_item": "on_sub_and_presence",
+            "pubsub#subscribe": True,
+        }
+        for field, answer in answers.items():
+            new_node_config_form.field[field].set_answer(answer)
+
+        if self.pubsub_leaderbord_node not in node_names:
+            await self._create_pubsub_node(self.pubsub_leaderbord_node, new_node_config_form)
+        else:
+            await self._check_pubsub_node_config(self.pubsub_leaderbord_node, new_node_config_form)
+
+        if self.pubsub_ratinglist_node not in node_names:
+            await self._create_pubsub_node(self.pubsub_ratinglist_node, new_node_config_form)
+        else:
+            await self._check_pubsub_node_config(self.pubsub_ratinglist_node, new_node_config_form)
+
     def _muc_online(self, presence):
         """Add joining players to the list of players.
 
@@ -594,7 +709,9 @@ class EcheLOn(ClientXMPP):
         jid_0ad_res.resource = "0ad"
         self.leaderboard.get_or_create_player(jid_0ad_res)
 
-        self._broadcast_rating_list()
+        self._publish_rating_list()
+        if not self.legacy_lists_disabled:
+            self._broadcast_rating_list()
 
         logging.debug("Client '%s' connected with a nick of '%s'.", jid, nick)
 
@@ -650,6 +767,11 @@ class EcheLOn(ClientXMPP):
             iq (IQ): Received IQ stanza
 
         """
+        if self.legacy_lists_disabled:
+            logging.debug("Retrieved request from client for ratings, but this deprecated "
+                          "feature is disabled")
+            return
+
         if not iq['from'].resource.startswith('0ad'):
             return
 
@@ -689,7 +811,11 @@ class EcheLOn(ClientXMPP):
             while rating_messages:
                 message = rating_messages.popleft()
                 self.send_message(mto=self.room, mbody=message, mtype='groupchat', mnick=self.nick)
-            self._broadcast_rating_list()
+
+            self._publish_leaderboard()
+            self._publish_rating_list()
+            if not self.legacy_lists_disabled:
+                self._broadcast_rating_list()
 
     def _iq_profile_handler(self, iq):
         """Handle profile requests from clients.
@@ -706,6 +832,21 @@ class EcheLOn(ClientXMPP):
         except Exception:
             logging.exception("Failed to send profile about %s to %s", iq['profile']['command'],
                               iq['from'].bare)
+
+    def _publish_leaderboard(self):
+        """Publish the leaderboard.
+
+        This publishes the current leaderboard as an item to the
+        configured PubSub node.
+        """
+        ratings = self.leaderboard.get_board()
+        stanza = BoardListXmppPlugin()
+        stanza.add_command('boardlist')
+        for player in ratings.values():
+            stanza.add_item(player['name'], player['rating'])
+
+        self.plugin['xep_0060'].publish(jid=self.pubsub_jid, node=self.pubsub_leaderbord_node,
+                                        payload=stanza)
 
     def _send_leaderboard(self, iq):
         """Send the whole leaderboard.
@@ -727,6 +868,31 @@ class EcheLOn(ClientXMPP):
             iq.send()
         except Exception:
             logging.exception("Failed to send leaderboard to %s", iq['to'])
+
+    def _publish_rating_list(self):
+        """Publish the rating list.
+
+        This publishes the ratings of all currently online players as
+        an item to the configured PubSub node.
+        """
+        nicks = {}
+        for nick in self.plugin['xep_0045'].get_roster(self.room):
+            jid = JID(self.plugin['xep_0045'].get_jid_property(self.room, nick, 'jid'))
+
+            if not jid.resource.startswith('0ad'):
+                continue
+
+            nicks[jid] = nick
+
+        ratings = self.leaderboard.get_rating_list(nicks)
+
+        stanza = BoardListXmppPlugin()
+        stanza.add_command('ratinglist')
+        for player in ratings.values():
+            stanza.add_item(player['name'], player['rating'])
+
+        self.plugin['xep_0060'].publish(jid=self.pubsub_jid, node=self.pubsub_ratinglist_node,
+                                        payload=stanza)
 
     def _send_rating_list(self, iq):
         """Send the ratings of all online players.
@@ -858,6 +1024,9 @@ def parse_args():
     parser.add_argument('--no-verify',
                         help="Don't verify the TLS server certificate when connecting",
                         action='store_true')
+    parser.add_argument('--disable-legacy-lists',
+                        help='Disable the deprecated pre-PubSub way of sending lists to players.',
+                        action='store_true')
 
     return parser.parse_args()
 
@@ -873,7 +1042,8 @@ def main():
     leaderboard = Leaderboard(args.database_url)
     xmpp = EcheLOn(JID('%s@%s/%s' % (args.login, args.domain, 'CC')), args.password,
                    JID(args.room + '@conference.' + args.domain), args.nickname, leaderboard,
-                   verify_certificate=not args.no_verify)
+                   verify_certificate=not args.no_verify,
+                   disable_legacy_lists=args.disable_legacy_lists)
     xmpp.register_plugin('xep_0030')  # Service Discovery
     xmpp.register_plugin('xep_0004')  # Data Forms
     xmpp.register_plugin('xep_0045')  # Multi-User Chat
