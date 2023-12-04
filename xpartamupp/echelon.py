@@ -663,11 +663,6 @@ class EcheLOn(ClientXMPP):
             except Exception:
                 logging.exception("Failed to process get leaderboard request from %s",
                                   iq['from'].bare)
-        elif command == 'getratinglist':
-            try:
-                self._send_rating_list(iq)
-            except Exception:
-                logging.exception("Failed to send the rating list to %s", iq['from'])
 
     def _iq_game_report_handler(self, iq):
         """Handle end of game reports from clients.
@@ -727,35 +722,6 @@ class EcheLOn(ClientXMPP):
             iq.send()
         except Exception:
             logging.exception("Failed to send leaderboard to %s", iq['to'])
-
-    def _send_rating_list(self, iq):
-        """Send the ratings of all online players.
-
-        Arguments:
-            iq (IQ): IQ stanza to reply to
-
-        """
-        nicks = {}
-        for nick in self.plugin['xep_0045'].get_roster(self.room):
-            jid = JID(self.plugin['xep_0045'].get_jid_property(self.room, nick, 'jid'))
-
-            if not jid.resource.startswith('0ad'):
-                continue
-
-            nicks[jid] = nick
-        ratings = self.leaderboard.get_rating_list(nicks)
-
-        iq = iq.reply()
-        stanza = BoardListXmppPlugin()
-        stanza.add_command('ratinglist')
-        for player in ratings.values():
-            stanza.add_item(player['name'], player['rating'])
-        iq.set_payload(stanza)
-
-        try:
-            iq.send()
-        except Exception:
-            logging.exception("Failed to send rating list to %s", iq['to'])
 
     def _broadcast_rating_list(self):
         """Broadcast the ratings of all online players."""
