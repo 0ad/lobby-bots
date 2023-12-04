@@ -89,8 +89,8 @@ class TestLeaderboard(TestCase):
         """Test profile retrieval for existing player."""
         self.leaderboard.get_or_create_player(JID('john@localhost/0ad'))
         profile = self.leaderboard.get_profile(JID('john@localhost/0ad'))
-        self.assertDictEqual(profile, {'highestRating': None, 'losses': 0, 'totalGamesPlayed': 0,
-                                       'wins': 0})
+        self.assertDictEqual(profile, {'rating': '-', 'highestRating': '-', 'losses': 0,
+                                       'rank': '-', 'totalGamesPlayed': 0, 'wins': 0})
 
     def test_get_profile_ambiguous_player(self):
         """Test profile retrieval if similar player exists.
