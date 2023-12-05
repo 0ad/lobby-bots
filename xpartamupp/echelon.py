@@ -34,7 +34,8 @@ from slixmpp.stanza import Iq
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.xmlstream.stanzabase import register_stanza_plugin
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine, func, text
+from sqlalchemy.dialects.sqlite.base import SQLiteDialect
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from xpartamupp.elo import get_rating_adjustment
@@ -59,8 +60,12 @@ class Leaderboard:
         self.rating_messages = deque()
 
         engine = create_engine(db_url)
+
         session_factory = sessionmaker(bind=engine)
         self.db = scoped_session(session_factory)
+
+        if isinstance(engine.dialect, SQLiteDialect):
+            self.db.execute(text("PRAGMA busy_timeout=10000"))
 
     def get_or_create_player(self, jid):
         """Get a player from the leaderboard database.
