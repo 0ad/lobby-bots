@@ -97,27 +97,24 @@ class Leaderboard:
             the player isn't known
 
         """
-        stats = {}
         player = self.db.query(Player).filter(func.lower(Player.jid) == str(jid).lower()).first()
 
         if not player:
             logging.debug("Couldn't find profile for player %s", jid)
             return {}
 
-        if player.rating != -1:
-            stats['rating'] = player.rating
-            rank = self.db.query(Player).filter(Player.rating >= player.rating).count()
-            stats['rank'] = rank
-
-        if player.highest_rating != -1:
-            stats['highestRating'] = player.highest_rating
-
         games_played = self.db.query(PlayerInfo).filter_by(player_id=player.id).count()
         wins = self.db.query(Game).filter_by(winner_id=player.id).count()
-        stats['totalGamesPlayed'] = games_played
-        stats['wins'] = wins
-        stats['losses'] = games_played - wins
-        return stats
+
+        if player.rating == -1:
+            logging.debug("Player %s hasn't played any rated games yet", jid)
+            return {'rating': '-', 'rank': '-', 'highestRating': '-',
+                    'totalGamesPlayed': games_played, 'wins': wins, 'losses': games_played - wins}
+
+        rank = self.db.query(Player).filter(Player.rating >= player.rating).count()
+
+        return {'rating': player.rating, 'rank': rank, 'highestRating': player.highest_rating,
+                'totalGamesPlayed': games_played, 'wins': wins, 'losses': games_played - wins}
 
     def _add_game(self, game_report):  # pylint: disable=too-many-locals
         """Add a game to the database.
