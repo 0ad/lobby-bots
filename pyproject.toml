@@ -18,8 +18,9 @@ classifiers = [
 ]
 dependencies = [
     "defusedxml",
+    "dateparser",
     "slixmpp>=1.8.0",
-    "sqlalchemy>=1.4.0",
+    "sqlalchemy>=2.0.4",
 ]
 dynamic = ["version"]
 
@@ -38,6 +39,7 @@ packages = ["xpartamupp"]
 [project.scripts]
 echelon = "xpartamupp.echelon:main"
 echelon-db = "xpartamupp.lobby_ranking:main"
+modbot = "xpartamupp.modbot:main"
 xpartamupp = "xpartamupp.xpartamupp:main"
 
 [tool.isort]
