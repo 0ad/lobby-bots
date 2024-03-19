@@ -436,7 +436,7 @@ class ModBot(ClientXMPP):
             try:
                 await self.plugin["xep_0045"].set_role(room, nick, "visitor", reason=reason)
             except IqError:
-                msg = f"Muting \"{nick}\" failed."
+                msg = f"Muting \"{nick}\" in {room} failed."
                 logging.exception(msg)
                 self.send_message(mto=self.command_room, mbody=msg, mtype="groupchat")
 
@@ -504,7 +504,7 @@ class ModBot(ClientXMPP):
             try:
                 await self.plugin["xep_0045"].set_role(room, nick, "participant", reason=reason)
             except IqError:
-                msg = f"Unmuting \"{nick}\" failed."
+                msg = f"Unmuting \"{nick}\" in {room} failed."
                 logging.exception(msg)
                 self.send_message(mto=self.command_room, mbody=msg, mtype="groupchat")
 
@@ -541,7 +541,7 @@ class ModBot(ClientXMPP):
             try:
                 await self.plugin["xep_0045"].set_role(room, nick, "none", reason=reason)
             except IqError:
-                logging.exception("Kicking user %s failed", user)
+                logging.exception("Kicking \"%s\" from %s failed", user, room)
                 rooms_kick_failed.append(room)
                 continue
 
@@ -554,7 +554,7 @@ class ModBot(ClientXMPP):
                               mtype="groupchat")
             return
 
-        rooms_kicked_from_str = {", ".join([str(room.local) for room in rooms_kicked_from])}
+        rooms_kicked_from_str = ", ".join([str(room.local) for room in rooms_kicked_from])
         self.send_message(mto=self.command_room,
                           mbody=f"Kicked \"{user.node}\" from the following MUC rooms: "
                                 f"{rooms_kicked_from_str}",
