@@ -55,6 +55,7 @@ class ModCmdParser(ArgumentParser):
         """
         kwargs["add_help"] = False
         kwargs["exit_on_error"] = False
+        kwargs["prefix_chars"] = [None]
         super().__init__(*args, **kwargs)
         self._positionals = self.add_argument_group("arguments")
 
