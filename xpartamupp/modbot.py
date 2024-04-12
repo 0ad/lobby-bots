@@ -43,6 +43,8 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from xpartamupp.lobby_moderation_db import (JIDNickWhitelist, KickEvent, Moderator, MuteEvent,
                                             UnmuteEvent)
 
+logger = logging.getLogger(__name__)
+
 
 class ModCmdParser(ArgumentParser):
     """Custom argument parser for commands via XMPP."""
@@ -174,7 +176,7 @@ def get_cmd_parser() -> ArgumentParser:
 def coroutine_exception_handler(task: Task) -> None:
     """Log asyncio task exceptions."""
     if task.exception():
-        logging.error("asyncio task failed", exc_info=task.exception())
+        logger.error("asyncio task failed", exc_info=task.exception())
 
 
 def create_task(*args, **kwargs) -> Task:
@@ -258,7 +260,7 @@ class ModBot(ClientXMPP):
                 task = create_task(self._unmute_after_mute_ended(mute.mute_end, JID(mute.player)))
                 self.unmute_tasks[mute.player] = task
 
-        logging.info("ModBot started")
+        logger.info("ModBot started")
 
     async def _shutdown(self, _) -> None:
         """Shut down ModBot.
@@ -267,7 +269,7 @@ class ModBot(ClientXMPP):
         configured credentials are wrong, as further connection tries
         won't succeed in this case.
         """
-        logging.error("Can't log in. Aborting reconnects.")
+        logger.error("Can't log in. Aborting reconnects.")
         self.abort()
         self.shutdown.set_result(True)
 
@@ -313,7 +315,7 @@ class ModBot(ClientXMPP):
         jid = JID(presence["muc"]["jid"])
         role = presence["muc"]["role"]
         room = presence["muc"]["room"]
-        logging.debug("User \"%s\" connected with a nick \"%s\".", jid, nick)
+        logger.debug("User \"%s\" connected with a nick \"%s\".", jid, nick)
 
         if not await self._check_matching_nick(jid, nick, JID(presence["muc"]["room"])):
             return
@@ -331,12 +333,12 @@ class ModBot(ClientXMPP):
                 await self.plugin["xep_0045"].set_role(room, nick, "visitor",
                                                        reason=mute_event.reason)
             except IqError:
-                logging.exception("Muting %s (%s) on join failed.", nick, jid)
+                logger.exception("Muting %s (%s) on join failed.", nick, jid)
         elif not mute_event and role == "visitor":
             try:
                 await self.plugin["xep_0045"].set_role(room, nick, "participant")
             except IqError:
-                logging.exception("Unmuting %s (%s) on join failed.", nick, jid)
+                logger.exception("Unmuting %s (%s) on join failed.", nick, jid)
 
     async def _muc_command_message(self, msg: Message) -> None:
         """Process messages in the command MUC room.
@@ -361,8 +363,8 @@ class ModBot(ClientXMPP):
 
         with self.db_session() as db:
             if not db.get(Moderator, moderator):
-                logging.warning("User %s, who is not a moderator, tried to execute a command",
-                                msg["from"])
+                logger.warning("User %s, who is not a moderator, tried to execute a command",
+                               msg["from"])
                 return
 
         try:
@@ -438,7 +440,7 @@ class ModBot(ClientXMPP):
                 await self.plugin["xep_0045"].set_role(room, nick, "visitor", reason=reason)
             except IqError:
                 msg = f"Muting \"{nick}\" in {room} failed."
-                logging.exception(msg)
+                logger.exception(msg)
                 self.send_message(mto=self.command_room, mbody=msg, mtype="groupchat")
 
         task = create_task(self._unmute_after_mute_ended(mute_end, user))
@@ -506,7 +508,7 @@ class ModBot(ClientXMPP):
                 await self.plugin["xep_0045"].set_role(room, nick, "participant", reason=reason)
             except IqError:
                 msg = f"Unmuting \"{nick}\" in {room} failed."
-                logging.exception(msg)
+                logger.exception(msg)
                 self.send_message(mto=self.command_room, mbody=msg, mtype="groupchat")
 
         try:
@@ -542,7 +544,7 @@ class ModBot(ClientXMPP):
             try:
                 await self.plugin["xep_0045"].set_role(room, nick, "none", reason=reason)
             except IqError:
-                logging.exception("Kicking \"%s\" from %s failed", user, room)
+                logger.exception("Kicking \"%s\" from %s failed", user, room)
                 rooms_kick_failed.append(room)
                 continue
 
@@ -594,13 +596,13 @@ class ModBot(ClientXMPP):
                 return True
 
             reason = f"User {jid} connected with a nick different to their JID: {nick}"
-            logging.info(reason)
+            logger.info(reason)
 
         try:
             await self.plugin["xep_0045"].set_role(room, nick, "none",
                                                    reason="Don't try to impersonate other users")
         except IqError:
-            logging.warning("Something failed when trying to kick a user for JID nick mismatch.")
+            logger.warning("Something failed when trying to kick a user for JID nick mismatch.")
 
         return False
 
@@ -641,7 +643,7 @@ class ModBot(ClientXMPP):
             try:
                 await self.plugin["xep_0045"].set_role(room, nick, "participant")
             except IqError:
-                logging.exception("Automatically unmuting %s in %s failed.", nick, room)
+                logger.exception("Automatically unmuting %s in %s failed.", nick, room)
 
         try:
             del self.unmute_tasks[user]
@@ -659,14 +661,13 @@ def parse_args():
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter,
                             description="ModBot - XMPP Moderation Bot")
 
-    log_settings = parser.add_mutually_exclusive_group()
-    log_settings.add_argument("-q", "--quiet", help="only log errors", action="store_const",
-                              dest="log_level", const=logging.ERROR)
-    log_settings.add_argument("-d", "--debug", help="log debug messages", action="store_const",
-                              dest="log_level", const=logging.DEBUG)
-    log_settings.add_argument("-v", "--verbose", help="log more informative messages",
-                              action="store_const", dest="log_level", const=logging.INFO)
-    log_settings.set_defaults(log_level=logging.WARNING)
+    verbosity_parser = parser.add_mutually_exclusive_group()
+    verbosity_parser.add_argument("-v", action="count", dest="verbosity", default=0,
+                                  help="Increase verbosity of logging. Can be provided up to "
+                                       "three times to get full debug logging")
+    verbosity_parser.add_argument("--verbosity", dest="verbosity", type=int,
+                                  help="Increase verbosity of logging. Supported values are 0 to 3"
+                                  )
 
     parser.add_argument("-m", "--domain", help="XMPP server to connect to",
                         default="lobby.wildfiregames.com")
@@ -692,9 +693,19 @@ def main():
     """Entry point a console script."""
     args = parse_args()
 
-    logging.basicConfig(level=args.log_level,
-                        format="%(asctime)s %(levelname)-8s %(message)s",
-                        datefmt="%Y-%m-%d %H:%M:%S")
+    log_level = logging.WARNING
+    if args.verbosity == 1:
+        log_level = logging.INFO
+    elif args.verbosity == 2:
+        log_level = logging.DEBUG
+    elif args.verbosity >= 3:
+        log_level = logging.DEBUG
+        root_logger = logging.getLogger()
+        root_logger.setLevel(log_level)
+
+    logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
+                        datefmt='%Y-%m-%dT%H:%M:%S%z')
+    logger.setLevel(log_level)
 
     xmpp = ModBot(JID("%s@%s/%s" % (args.login, args.domain, "CC")), args.password, args.nickname,
                   [JID(room + "@conference." + args.domain) for room in args.rooms],

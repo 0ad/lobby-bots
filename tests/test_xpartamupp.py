@@ -92,37 +92,41 @@ class TestArgumentParsing(TestCase):
     """Test handling of parsing command line parameters."""
 
     @parameterized.expand([
-        ([], Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=30,
+        ([], Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', verbosity=0,
                        xserver=None, no_verify=False,
                        nickname='WFGBot', password='XXXXXX', room='arena')),
-        (['--debug'],
-         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=10,
+        (['-v'],
+         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', verbosity=1,
                    xserver=None, no_verify=False,
                    nickname='WFGBot', password='XXXXXX', room='arena')),
-        (['--quiet'],
-         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=40,
+        (['-vv'],
+         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', verbosity=2,
                    xserver=None, no_verify=False,
                    nickname='WFGBot', password='XXXXXX', room='arena')),
-        (['--verbose'],
-         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=20,
+        (['-vvv'],
+         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', verbosity=3,
+                   xserver=None, no_verify=False,
+                   nickname='WFGBot', password='XXXXXX', room='arena')),
+        (['--verbosity', '3'],
+         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', verbosity=3,
                    xserver=None, no_verify=False,
                    nickname='WFGBot', password='XXXXXX', room='arena')),
         (['-m', 'lobby.domain.tld'],
-         Namespace(domain='lobby.domain.tld', login='xpartamupp', log_level=30, nickname='WFGBot',
+         Namespace(domain='lobby.domain.tld', login='xpartamupp', verbosity=0, nickname='WFGBot',
                    xserver=None, no_verify=False, password='XXXXXX', room='arena')),
         (['--domain=lobby.domain.tld'],
-         Namespace(domain='lobby.domain.tld', login='xpartamupp', log_level=30, nickname='WFGBot',
+         Namespace(domain='lobby.domain.tld', login='xpartamupp', verbosity=0, nickname='WFGBot',
                    xserver=None, no_verify=False, password='XXXXXX', room='arena')),
         (['-m', 'lobby.domain.tld', '-l', 'bot', '-p', '123456', '-n', 'Bot', '-r', 'arena123',
           '-v'],
-         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, xserver=None,
+         Namespace(domain='lobby.domain.tld', login='bot', verbosity=1, xserver=None,
                    no_verify=False, nickname='Bot', password='123456', room='arena123')),
         (['--domain=lobby.domain.tld', '--login=bot', '--password=123456', '--nickname=Bot',
-          '--room=arena123', '--verbose'],
-         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, xserver=None,
+          '--room=arena123'],
+         Namespace(domain='lobby.domain.tld', login='bot', verbosity=0, xserver=None,
                    no_verify=False, nickname='Bot', password='123456', room='arena123')),
         (['--no-verify'],
-         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=30,
+         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', verbosity=0,
                    xserver=None, no_verify=True,
                    nickname='WFGBot', password='XXXXXX', room='arena')),
     ])
@@ -134,10 +138,7 @@ class TestArgumentParsing(TestCase):
     @parameterized.expand([
         (['-f'],),
         (['--foo'],),
-        (['--debug', '--quiet'],),
-        (['--quiet', '--verbose'],),
-        (['--debug', '--verbose'],),
-        (['--debug', '--quiet', '--verbose'],),
+        (['-v', '--verbosity', '1'],)
     ])
     def test_invalid(self, cmd_args):
         """Test invalid parameter combinations."""
@@ -156,7 +157,7 @@ class TestMain(TestCase):
             args_mock.return_value = Mock(log_level=30, login='xpartamupp',
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='WFGBot',
-                                          xserver=None, no_verify=False)
+                                          xserver=None, no_verify=False, verbosity=0)
             main()
             args_mock.assert_called_once_with()
             xmpp_mock().register_plugin.assert_has_calls([call('xep_0004'), call('xep_0030'),

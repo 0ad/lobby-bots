@@ -51,6 +51,8 @@ LEADERBOARD_DEFAULT_RATING = 1200
 # to a mention.
 INFO_MSG_COOLDOWN_SECONDS = 120
 
+logger = logging.getLogger(__name__)
+
 
 class Leaderboard:
     """Class that provides and manages leaderboard data."""
@@ -88,7 +90,7 @@ class Leaderboard:
         player = Player(jid=str(jid), rating=-1)
         self.db.add(player)
         self.db.commit()
-        logging.debug("Created player %s", jid)
+        logger.debug("Created player %s", jid)
         return player
 
     def get_profile(self, jid):
@@ -105,14 +107,14 @@ class Leaderboard:
         player = self.db.query(Player).filter(func.lower(Player.jid) == str(jid).lower()).first()
 
         if not player:
-            logging.debug("Couldn't find profile for player %s", jid)
+            logger.debug("Couldn't find profile for player %s", jid)
             return {}
 
         games_played = self.db.query(PlayerInfo).filter_by(player_id=player.id).count()
         wins = self.db.query(Game).filter_by(winner_id=player.id).count()
 
         if player.rating == -1:
-            logging.debug("Player %s hasn't played any rated games yet", jid)
+            logger.debug("Player %s hasn't played any rated games yet", jid)
             return {'rating': '-', 'rank': '-', 'highestRating': '-',
                     'totalGamesPlayed': games_played, 'wins': wins, 'losses': games_played - wins}
 
@@ -138,7 +140,7 @@ class Leaderboard:
         # Discard any games still in progress. We shouldn't get
         # reports from those games anyway.
         if 'active' in dict.values(game_report['playerStates']):
-            logging.warning("Received a game report for an unfinished game")
+            logger.warning("Received a game report for an unfinished game")
             return None
 
         players = self.db.query(Player).filter(func.lower(Player.jid).in_(
@@ -382,19 +384,19 @@ class ReportManager:
             current_match = self.interim_report_tracker[match_id]
             if raw_game_report != current_match['report']:
                 report_diff = self._get_report_diff(raw_game_report, current_match['report'])
-                logging.warning("Retrieved reports for match %s differ:\n %s", match_id,
-                                report_diff)
+                logger.warning("Retrieved reports for match %s differ:\n %s", match_id,
+                               report_diff)
                 return
 
             player_jids = current_match['jids']
             if player_index in player_jids:
                 if player_jids[player_index] == jid:
-                    logging.warning("Received a report for match %s from player %s twice.",
-                                    match_id, jid)
+                    logger.warning("Received a report for match %s from player %s twice.",
+                                   match_id, jid)
                 else:
-                    logging.warning("Retrieved a report for match %s for the same player twice, "
-                                    "but from two different XMPP accounts: %s vs. %s", match_id,
-                                    player_jids[player_index], jid)
+                    logger.warning("Retrieved a report for match %s for the same player twice, "
+                                   "but from two different XMPP accounts: %s vs. %s", match_id,
+                                   player_jids[player_index], jid)
                 return
             else:
                 player_jids[player_index] = str(JID(jid).bare + "/0ad")
@@ -406,13 +408,13 @@ class ReportManager:
                     self.leaderboard.add_and_rate_game(self._expand_report(
                         current_match))
                 except Exception:
-                    logging.exception("Failed to add and rate a game.")
+                    logger.exception("Failed to add and rate a game.")
                 del current_match
             elif num_retrieved_reports < num_players:
-                logging.warning("Haven't received all reports for the game yet. %i/%i",
-                                num_retrieved_reports, num_players)
+                logger.warning("Haven't received all reports for the game yet. %i/%i",
+                               num_retrieved_reports, num_players)
             elif num_retrieved_reports > num_players:
-                logging.warning("Retrieved more reports than players. This shouldn't happen.")
+                logger.warning("Retrieved more reports than players. This shouldn't happen.")
 
     @staticmethod
     def _expand_report(game_report):
@@ -542,7 +544,7 @@ class EcheLOn(ClientXMPP):
         await self.plugin['xep_0045'].join_muc_wait(self.room, self.nick)
         self.send_presence()
         self.get_roster()
-        logging.info("EcheLOn started")
+        logger.info("EcheLOn started")
 
     async def _shutdown(self, event):  # pylint: disable=unused-argument
         """Shut down EcheLOn.
@@ -555,7 +557,7 @@ class EcheLOn(ClientXMPP):
             event (dict): empty dummy dict
 
         """
-        logging.error("Can't log in. Aborting reconnects.")
+        logger.error("Can't log in. Aborting reconnects.")
         self.abort()
         self.shutdown.set_result(True)
 
@@ -598,7 +600,7 @@ class EcheLOn(ClientXMPP):
 
         self._broadcast_rating_list()
 
-        logging.debug("Client '%s' connected with a nick of '%s'.", jid, nick)
+        logger.debug("Client '%s' connected with a nick of '%s'.", jid, nick)
 
     def _muc_offline(self, presence):
         """Remove leaving players from the list of players.
@@ -614,7 +616,7 @@ class EcheLOn(ClientXMPP):
         if not jid.resource.startswith('0ad'):
             return
 
-        logging.debug("Client '%s' with nick '%s' disconnected", jid, nick)
+        logger.debug("Client '%s' with nick '%s' disconnected", jid, nick)
 
     def _muc_message(self, msg):
         """Process messages in the MUC room.
@@ -663,8 +665,8 @@ class EcheLOn(ClientXMPP):
             try:
                 self._send_leaderboard(iq)
             except Exception:
-                logging.exception("Failed to process get leaderboard request from %s",
-                                  iq['from'].bare)
+                logger.exception("Failed to process get leaderboard request from %s",
+                                 iq['from'].bare)
 
     def _iq_game_report_handler(self, iq):
         """Handle end of game reports from clients.
@@ -679,7 +681,7 @@ class EcheLOn(ClientXMPP):
         try:
             self.report_manager.add_report(iq['from'], iq['gamereport']['game'])
         except Exception:
-            logging.exception("Failed to update game statistics for %s", iq['from'].bare)
+            logger.exception("Failed to update game statistics for %s", iq['from'].bare)
 
         rating_messages = self.leaderboard.get_rating_messages()
         if rating_messages:
@@ -701,8 +703,8 @@ class EcheLOn(ClientXMPP):
         try:
             self._send_profile(iq, iq['profile']['command'])
         except Exception:
-            logging.exception("Failed to send profile about %s to %s", iq['profile']['command'],
-                              iq['from'].bare)
+            logger.exception("Failed to send profile about %s to %s", iq['profile']['command'],
+                             iq['from'].bare)
 
     def _send_leaderboard(self, iq):
         """Send the whole leaderboard.
@@ -723,7 +725,7 @@ class EcheLOn(ClientXMPP):
         try:
             iq.send()
         except Exception:
-            logging.exception("Failed to send leaderboard to %s", iq['to'])
+            logger.exception("Failed to send leaderboard to %s", iq['to'])
 
     def _broadcast_rating_list(self):
         """Broadcast the ratings of all online players."""
@@ -748,7 +750,7 @@ class EcheLOn(ClientXMPP):
             try:
                 iq.send()
             except Exception:
-                logging.exception("Failed to send rating list to %s", jid)
+                logger.exception("Failed to send rating list to %s", jid)
 
     def _send_profile(self, iq, player_nick):
         """Send the player profile to a specified target.
@@ -774,7 +776,7 @@ class EcheLOn(ClientXMPP):
         try:
             stats = self.leaderboard.get_profile(player_jid)
         except Exception:
-            logging.exception("Failed to get leaderboard profile for player %s", player_jid)
+            logger.exception("Failed to get leaderboard profile for player %s", player_jid)
             stats = {}
 
         iq = iq.reply()
@@ -791,7 +793,7 @@ class EcheLOn(ClientXMPP):
         try:
             iq.send()
         except Exception:
-            logging.exception("Failed to send profile to %s", iq['to'])
+            logger.exception("Failed to send profile to %s", iq['to'])
 
 
 def parse_args():
@@ -804,14 +806,13 @@ def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description="EcheLOn - XMPP Rating Bot")
 
-    log_settings = parser.add_mutually_exclusive_group()
-    log_settings.add_argument('-q', '--quiet', help="only log errors", action='store_const',
-                              dest='log_level', const=logging.ERROR)
-    log_settings.add_argument('-d', '--debug', help="log debug messages", action='store_const',
-                              dest='log_level', const=logging.DEBUG)
-    log_settings.add_argument('-v', '--verbose', help="log more informative messages",
-                              action='store_const', dest='log_level', const=logging.INFO)
-    log_settings.set_defaults(log_level=logging.WARNING)
+    verbosity_parser = parser.add_mutually_exclusive_group()
+    verbosity_parser.add_argument("-v", action="count", dest="verbosity", default=0,
+                                  help="Increase verbosity of logging. Can be provided up to "
+                                       "three times to get full debug logging")
+    verbosity_parser.add_argument("--verbosity", type=int,
+                                  help="Increase verbosity of logging. Supported values are 0 to 3"
+                                  )
 
     parser.add_argument('-m', '--domain', help="XMPP server to connect to",
                         default='lobby.wildfiregames.com')
@@ -834,9 +835,19 @@ def main():
     """Entry point a console script."""
     args = parse_args()
 
-    logging.basicConfig(level=args.log_level,
-                        format='%(asctime)s %(levelname)-8s %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S')
+    log_level = logging.WARNING
+    if args.verbosity == 1:
+        log_level = logging.INFO
+    elif args.verbosity == 2:
+        log_level = logging.DEBUG
+    elif args.verbosity >= 3:
+        log_level = logging.DEBUG
+        root_logger = logging.getLogger()
+        root_logger.setLevel(log_level)
+
+    logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
+                        datefmt='%Y-%m-%dT%H:%M:%S%z')
+    logger.setLevel(log_level)
 
     leaderboard = Leaderboard(args.database_url)
     xmpp = EcheLOn(JID('%s@%s/%s' % (args.login, args.domain, 'CC')), args.password,

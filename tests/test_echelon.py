@@ -123,41 +123,45 @@ class TestArgumentParsing(TestCase):
 
     @parameterized.expand([
         ([],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=30, xserver=None,
+         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', xserver=None,
                    no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
-                   database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['--debug'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=10, xserver=None,
+                   verbosity=0, database_url='sqlite:///lobby_rankings.sqlite3')),
+        (['-v'],
+         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', xserver=None,
                    no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
-                   database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['--quiet'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=40, xserver=None,
+                   verbosity=1, database_url='sqlite:///lobby_rankings.sqlite3')),
+        (['-vv'],
+         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', xserver=None,
                    no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
-                   database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['--verbose'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=20, xserver=None,
+                   verbosity=2, database_url='sqlite:///lobby_rankings.sqlite3')),
+        (['-vvv'],
+         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', xserver=None,
                    no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
-                   database_url='sqlite:///lobby_rankings.sqlite3')),
+                   verbosity=3, database_url='sqlite:///lobby_rankings.sqlite3')),
+        (['--verbosity', '3'],
+         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', xserver=None,
+                   no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
+                   verbosity=3, database_url='sqlite:///lobby_rankings.sqlite3')),
         (['-m', 'lobby.domain.tld'],
-         Namespace(domain='lobby.domain.tld', login='EcheLOn', log_level=30, nickname='RatingsBot',
+         Namespace(domain='lobby.domain.tld', login='EcheLOn', verbosity=0, nickname='RatingsBot',
                    xserver=None, no_verify=False, password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3')),
         (['--domain=lobby.domain.tld'],
-         Namespace(domain='lobby.domain.tld', login='EcheLOn', log_level=30, nickname='RatingsBot',
+         Namespace(domain='lobby.domain.tld', login='EcheLOn', verbosity=0, nickname='RatingsBot',
                    xserver=None, no_verify=False, password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3')),
         (['-m', 'lobby.domain.tld', '-l', 'bot', '-p', '123456', '-n', 'Bot', '-r', 'arena123',
           '-v'],
-         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, nickname='Bot',
+         Namespace(domain='lobby.domain.tld', login='bot', verbosity=1, nickname='Bot',
                    xserver=None, no_verify=False, password='123456', room='arena123',
                    database_url='sqlite:///lobby_rankings.sqlite3')),
         (['--domain=lobby.domain.tld', '--login=bot', '--password=123456', '--nickname=Bot',
-          '--room=arena123', '--database-url=sqlite:////tmp/db.sqlite3', '--verbose'],
-         Namespace(domain='lobby.domain.tld', login='bot', log_level=20, nickname='Bot',
+          '--room=arena123', '--database-url=sqlite:////tmp/db.sqlite3'],
+         Namespace(domain='lobby.domain.tld', login='bot', verbosity=0, nickname='Bot',
                    xserver=None, no_verify=False, password='123456', room='arena123',
                    database_url='sqlite:////tmp/db.sqlite3')),
         (['--no-verify'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', log_level=30, xserver=None,
+         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', verbosity=0, xserver=None,
                    no_verify=True, nickname='RatingsBot', password='XXXXXX', room='arena',
                    database_url='sqlite:///lobby_rankings.sqlite3')),
     ])
@@ -169,10 +173,7 @@ class TestArgumentParsing(TestCase):
     @parameterized.expand([
         (['-f'],),
         (['--foo'],),
-        (['--debug', '--quiet'],),
-        (['--quiet', '--verbose'],),
-        (['--debug', '--verbose'],),
-        (['--debug', '--quiet', '--verbose'],),
+        (['-v', '--verbosity', '1'],)
     ])
     def test_invalid(self, cmd_args):
         """Test invalid parameter combinations."""
@@ -193,7 +194,7 @@ class TestMain(TestCase):
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='RatingsBot',
                                           database_url='sqlite:///lobby_rankings.sqlite3',
-                                          xserver=None, no_verify=False)
+                                          xserver=None, no_verify=False, verbosity=0)
             main()
             args_mock.assert_called_once_with()
             leaderboard_mock.assert_called_once_with('sqlite:///lobby_rankings.sqlite3')

@@ -40,6 +40,8 @@ from xpartamupp.utils import LimitedSizeDict
 # to a mention.
 INFO_MSG_COOLDOWN_SECONDS = 120
 
+logger = logging.getLogger(__name__)
+
 
 class Games:
     """Class to tracks all games in the lobby."""
@@ -64,7 +66,7 @@ class Games:
             data['nbp-init'] = data['nbp']
             data['state'] = 'init'
         except (KeyError, TypeError, ValueError):
-            logging.warning("Received invalid data for add game from 0ad: %s", data)
+            logger.warning("Received invalid data for add game from 0ad: %s", data)
             return False
         else:
             self.games[jid] = data
@@ -83,7 +85,7 @@ class Games:
         try:
             del self.games[jid]
         except KeyError:
-            logging.warning("Game for jid %s didn't exist", jid)
+            logger.warning("Game for jid %s didn't exist", jid)
             return False
         else:
             return True
@@ -110,22 +112,22 @@ class Games:
 
         """
         if jid not in self.games:
-            logging.warning("Tried to change state for non-existent game %s", jid)
+            logger.warning("Tried to change state for non-existent game %s", jid)
             return False
 
         try:
             if self.games[jid]['nbp-init'] > data['nbp']:
-                logging.debug("change game (%s) state from %s to %s", jid,
-                              self.games[jid]['state'], 'waiting')
+                logger.debug("change game (%s) state from %s to %s", jid,
+                             self.games[jid]['state'], 'waiting')
                 self.games[jid]['state'] = 'waiting'
             else:
-                logging.debug("change game (%s) state from %s to %s", jid,
-                              self.games[jid]['state'], 'running')
+                logger.debug("change game (%s) state from %s to %s", jid,
+                             self.games[jid]['state'], 'running')
                 self.games[jid]['state'] = 'running'
             self.games[jid]['nbp'] = data['nbp']
             self.games[jid]['players'] = data['players']
         except (KeyError, ValueError):
-            logging.warning("Received invalid data for change game state from 0ad: %s", data)
+            logger.warning("Received invalid data for change game state from 0ad: %s", data)
             return False
         else:
             if 'startTime' not in self.games[jid]:
@@ -190,7 +192,7 @@ class XpartaMuPP(ClientXMPP):
         await self.plugin['xep_0045'].join_muc_wait(self.room, self.nick)
         self.send_presence()
         self.get_roster()
-        logging.info("XpartaMuPP started")
+        logger.info("XpartaMuPP started")
 
     async def _shutdown(self, event):  # pylint: disable=unused-argument
         """Shut down XpartaMuPP.
@@ -203,7 +205,7 @@ class XpartaMuPP(ClientXMPP):
             event (dict): empty dummy dict
 
         """
-        logging.error("Can't log in. Aborting reconnects.")
+        logger.error("Can't log in. Aborting reconnects.")
         self.abort()
         self.shutdown.set_result(True)
 
@@ -245,7 +247,7 @@ class XpartaMuPP(ClientXMPP):
 
         self._send_game_list(jid)
 
-        logging.debug("Client '%s' connected with a nick '%s'.", jid, nick)
+        logger.debug("Client '%s' connected with a nick '%s'.", jid, nick)
 
     def _muc_offline(self, presence):
         """Remove leaving players from the list of players.
@@ -267,7 +269,7 @@ class XpartaMuPP(ClientXMPP):
         if self.games.remove_game(jid):
             self._send_game_list()
 
-        logging.debug("Client '%s' with nick '%s' disconnected", jid, nick)
+        logger.debug("Client '%s' with nick '%s' disconnected", jid, nick)
 
     def _muc_message(self, msg):
         """Process messages in the MUC room.
@@ -318,7 +320,7 @@ class XpartaMuPP(ClientXMPP):
         elif command == 'changestate':
             success = self.games.change_game_state(iq['from'], iq['gamelist']['game'])
         else:
-            logging.info('Received unknown game command: "%s"', command)
+            logger.info('Received unknown game command: "%s"', command)
 
         iq = iq.reply(clear=not success)
         if not success:
@@ -329,7 +331,7 @@ class XpartaMuPP(ClientXMPP):
             try:
                 self._send_game_list()
             except Exception:
-                logging.exception('Failed to send game list after "%s" command', command)
+                logger.exception('Failed to send game list after "%s" command', command)
 
     def _send_game_list(self, to=None):
         """Send a massive stanza with the whole game list.
@@ -363,14 +365,14 @@ class XpartaMuPP(ClientXMPP):
                 try:
                     iq.send()
                 except Exception:
-                    logging.exception("Failed to send game list to %s", jid)
+                    logger.exception("Failed to send game list to %s", jid)
         else:
             iq = self.make_iq_result(ito=to)
             iq.set_payload(stanza)
             try:
                 iq.send()
             except Exception:
-                logging.exception("Failed to send game list to %s", to)
+                logger.exception("Failed to send game list to %s", to)
 
 
 def parse_args():
@@ -383,14 +385,13 @@ def parse_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      description="XpartaMuPP - XMPP Multiplayer Game Manager")
 
-    log_settings = parser.add_mutually_exclusive_group()
-    log_settings.add_argument('-q', '--quiet', help="only log errors", action='store_const',
-                              dest='log_level', const=logging.ERROR)
-    log_settings.add_argument('-d', '--debug', help="log debug messages", action='store_const',
-                              dest='log_level', const=logging.DEBUG)
-    log_settings.add_argument('-v', '--verbose', help="log more informative messages",
-                              action='store_const', dest='log_level', const=logging.INFO)
-    log_settings.set_defaults(log_level=logging.WARNING)
+    verbosity_parser = parser.add_mutually_exclusive_group()
+    verbosity_parser.add_argument("-v", action="count", dest="verbosity", default=0,
+                                  help="Increase verbosity of logging. Can be provided up to "
+                                       "three times to get full debug logging")
+    verbosity_parser.add_argument("--verbosity", type=int,
+                                  help="Increase verbosity of logging. Supported values are 0 to 3"
+                                  )
 
     parser.add_argument('-m', '--domain', help="XMPP server to connect to",
                         default='lobby.wildfiregames.com')
@@ -411,9 +412,19 @@ def main():
     """Entry point a console script."""
     args = parse_args()
 
-    logging.basicConfig(level=args.log_level,
-                        format='%(asctime)s %(levelname)-8s %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S')
+    log_level = logging.WARNING
+    if args.verbosity == 1:
+        log_level = logging.INFO
+    elif args.verbosity == 2:
+        log_level = logging.DEBUG
+    elif args.verbosity >= 3:
+        log_level = logging.DEBUG
+        root_logger = logging.getLogger()
+        root_logger.setLevel(log_level)
+
+    logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
+                        datefmt='%Y-%m-%dT%H:%M:%S%z')
+    logger.setLevel(log_level)
 
     xmpp = XpartaMuPP(JID('%s@%s/%s' % (args.login, args.domain, 'CC')), args.password,
                       JID(args.room + '@conference.' + args.domain), args.nickname,
