@@ -18,12 +18,12 @@
 
 """0ad XMPP-bot responsible for managing game ratings."""
 
-import argparse
 import asyncio
 import difflib
 import logging
 import ssl
 
+from argparse import ArgumentDefaultsHelpFormatter
 from asyncio import Future
 from collections import deque
 from datetime import datetime, timedelta, timezone
@@ -41,7 +41,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from xpartamupp.elo import get_rating_adjustment
 from xpartamupp.lobby_ranking import Game, Player, PlayerInfo
 from xpartamupp.stanzas import BoardListXmppPlugin, GameReportXmppPlugin, ProfileXmppPlugin
-from xpartamupp.utils import LimitedSizeDict
+from xpartamupp.utils import ArgumentParserWithConfigFile, LimitedSizeDict
 
 # Rating that new players should be inserted into the
 # database with, before they've played any games.
@@ -803,8 +803,8 @@ def parse_args():
          Parsed command line arguments
 
     """
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description="EcheLOn - XMPP Rating Bot")
+    parser = ArgumentParserWithConfigFile(formatter_class=ArgumentDefaultsHelpFormatter,
+                                          description="EcheLOn - XMPP Rating Bot")
 
     verbosity_parser = parser.add_mutually_exclusive_group()
     verbosity_parser.add_argument("-v", action="count", dest="verbosity", default=0,

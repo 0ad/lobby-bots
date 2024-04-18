@@ -42,6 +42,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 from xpartamupp.lobby_moderation_db import (JIDNickWhitelist, KickEvent, Moderator, MuteEvent,
                                             UnmuteEvent)
+from xpartamupp.utils import ArgumentParserWithConfigFile
 
 logger = logging.getLogger(__name__)
 
@@ -658,8 +659,8 @@ def parse_args():
          Parsed command line arguments
 
     """
-    parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter,
-                            description="ModBot - XMPP Moderation Bot")
+    parser = ArgumentParserWithConfigFile(formatter_class=ArgumentDefaultsHelpFormatter,
+                                          description="ModBot - XMPP Moderation Bot")
 
     verbosity_parser = parser.add_mutually_exclusive_group()
     verbosity_parser.add_argument("-v", action="count", dest="verbosity", default=0,

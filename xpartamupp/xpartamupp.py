@@ -17,12 +17,12 @@
 
 """0ad XMPP-bot responsible for managing game listings."""
 
-import argparse
 import asyncio
 import logging
 import ssl
 import time
 
+from argparse import ArgumentDefaultsHelpFormatter
 from asyncio import Future
 from datetime import datetime, timedelta, timezone
 
@@ -34,7 +34,7 @@ from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.xmlstream.stanzabase import register_stanza_plugin
 
 from xpartamupp.stanzas import GameListXmppPlugin
-from xpartamupp.utils import LimitedSizeDict
+from xpartamupp.utils import ArgumentParserWithConfigFile, LimitedSizeDict
 
 # Number of seconds to not respond to mentions after having responded
 # to a mention.
@@ -382,8 +382,8 @@ def parse_args():
          Parsed command line arguments
 
     """
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description="XpartaMuPP - XMPP Multiplayer Game Manager")
+    parser = ArgumentParserWithConfigFile(formatter_class=ArgumentDefaultsHelpFormatter,
+                                          description="XpartaMuPP - XMPP Multiplayer Game Manager")
 
     verbosity_parser = parser.add_mutually_exclusive_group()
     verbosity_parser.add_argument("-v", action="count", dest="verbosity", default=0,
