@@ -29,7 +29,7 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 
 from slixmpp import ClientXMPP
-from slixmpp.jid import JID
+from slixmpp.jid import JID, InvalidJID
 from slixmpp.stanza import Iq
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
@@ -761,22 +761,23 @@ class EcheLOn(ClientXMPP):
                 profile for
 
         """
+        player_jid = None
+
         jid_str = self.plugin['xep_0045'].get_jid_property(self.room, player_nick, 'jid')
         if jid_str:
             player_jid = JID(jid_str)
             player_jid.resource = "0ad"
         else:
-            player_jid = None
+            # The player the profile got requested for is not online, so
+            # let's assume the JID contains the nick as local part.
+            try:
+                player_jid = JID('%s@%s/%s' % (player_nick, self.sjid.domain, '0ad'))
+            except InvalidJID:
+                pass
 
-        # The player the profile got requested for is not online, so
-        # let's assume the JID contains the nick as local part.
-        if not player_jid:
-            player_jid = JID('%s@%s/%s' % (player_nick, self.sjid.domain, '0ad'))
-
-        try:
+        if player_jid:
             stats = self.leaderboard.get_profile(player_jid)
-        except Exception:
-            logger.exception("Failed to get leaderboard profile for player %s", player_jid)
+        else:
             stats = {}
 
         iq = iq.reply()
