@@ -19,37 +19,7 @@
 import tomllib
 
 from argparse import ArgumentParser, Namespace
-from collections import OrderedDict
 from typing import Sequence
-
-
-class LimitedSizeDict(OrderedDict):
-    """Dictionary with limited size and FIFO characteristics."""
-
-    def __init__(self, *args, **kwargs):
-        """Initialize the dictionary.
-
-        Set the limit to which size the dict should be able to grow.
-        """
-        self.size_limit = kwargs.pop('size_limit', None)
-        OrderedDict.__init__(self, *args, **kwargs)
-        self._check_size_limit()
-
-    def __setitem__(self, key, value):
-        """Overwrite default method to add size limit check."""
-        OrderedDict.__setitem__(self, key, value)
-        self._check_size_limit()
-
-    def _check_size_limit(self):
-        """Ensure dict is not larger than the size limit.
-
-        Compares the current size of the dict with the size limit and
-        removes items from the dict until the size is equal the size
-        limit.
-        """
-        if self.size_limit:
-            while len(self) > self.size_limit:
-                self.popitem(last=False)
 
 
 class ArgumentParserWithConfigFile(ArgumentParser):

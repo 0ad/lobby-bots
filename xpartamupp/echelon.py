@@ -28,6 +28,7 @@ from asyncio import Future
 from collections import deque
 from datetime import datetime, timedelta, timezone
 
+from cachetools import TTLCache
 from slixmpp import ClientXMPP
 from slixmpp.jid import JID
 from slixmpp.stanza import Iq
@@ -41,7 +42,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from xpartamupp.elo import get_rating_adjustment
 from xpartamupp.lobby_ranking import Game, Player, PlayerInfo
 from xpartamupp.stanzas import BoardListXmppPlugin, GameReportXmppPlugin, ProfileXmppPlugin
-from xpartamupp.utils import ArgumentParserWithConfigFile, LimitedSizeDict
+from xpartamupp.utils import ArgumentParserWithConfigFile
 
 # Rating that new players should be inserted into the
 # database with, before they've played any games.
@@ -362,7 +363,7 @@ class ReportManager:
 
         """
         self.leaderboard = leaderboard
-        self.interim_report_tracker = LimitedSizeDict(size_limit=2 ** 12)
+        self.interim_report_tracker = TTLCache(maxsize=2 ** 12, ttl=60 * 60 * 1)
 
     def add_report(self, jid, raw_game_report):
         """Add a game to the interface between a raw report and the leaderboard database.
@@ -409,7 +410,7 @@ class ReportManager:
                         current_match))
                 except Exception:
                     logger.exception("Failed to add and rate a game.")
-                del current_match
+                del self.interim_report_tracker[match_id]
             elif num_retrieved_reports < num_players:
                 logger.warning("Haven't received all reports for the game yet. %i/%i",
                                num_retrieved_reports, num_players)

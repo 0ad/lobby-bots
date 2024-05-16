@@ -22,6 +22,7 @@ from argparse import Namespace
 from unittest import TestCase
 from unittest.mock import Mock, call, patch
 
+from cachetools import FIFOCache
 from parameterized import parameterized
 from slixmpp.jid import JID
 
@@ -41,7 +42,8 @@ class TestGames(TestCase):
         all_games = games.get_all_games()
         game_data.update({'players-init': game_data['players'], 'nbp-init': game_data['nbp'],
                           'state': game_data['state']})
-        self.assertDictEqual(all_games, {jid: game_data})
+        self.assertIsInstance(all_games, FIFOCache)
+        self.assertDictEqual(dict(all_games), {jid: game_data})
 
     @parameterized.expand([
         ('', {}),
@@ -68,11 +70,12 @@ class TestGames(TestCase):
                            'state': game_data1['state']})
         game_data2.update({'players-init': game_data2['players'], 'nbp-init': game_data2['nbp'],
                            'state': game_data2['state']})
-        self.assertDictEqual(games.get_all_games(), {jid1: game_data1, jid2: game_data2})
+        self.assertIsInstance(games.get_all_games(), FIFOCache)
+        self.assertDictEqual(dict(games.get_all_games()), {jid1: game_data1, jid2: game_data2})
         games.remove_game(jid1)
-        self.assertDictEqual(games.get_all_games(), {jid2: game_data2})
+        self.assertDictEqual(dict(games.get_all_games()), {jid2: game_data2})
         games.remove_game(jid2)
-        self.assertDictEqual(games.get_all_games(), {})
+        self.assertDictEqual(dict(games.get_all_games()), {})
 
     def test_remove_unknown(self):
         """Test removal of a game, which doesn't exist."""

@@ -17,6 +17,7 @@ classifiers = [
     "Topic :: Internet :: XMPP",
 ]
 dependencies = [
+    "cachetools",
     "defusedxml",
     "dateparser",
     "slixmpp>=1.8.0",
