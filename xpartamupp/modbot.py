@@ -27,7 +27,7 @@ from argparse import (ONE_OR_MORE, PARSER, SUPPRESS, Action, ArgumentDefaultsHel
                       ArgumentError, ArgumentParser, HelpFormatter, Namespace,
                       _MutuallyExclusiveGroup)
 from asyncio import Future, Task
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional, Tuple
 
 import dateparser
@@ -43,6 +43,10 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from xpartamupp.lobby_moderation_db import (JIDNickWhitelist, KickEvent, Moderator, MuteEvent,
                                             UnmuteEvent)
 from xpartamupp.utils import ArgumentParserWithConfigFile
+
+# Number of seconds to not respond to mentions after having responded
+# to a mention.
+INFO_MSG_COOLDOWN_SECONDS = 120
 
 logger = logging.getLogger(__name__)
 
@@ -232,9 +236,12 @@ class ModBot(ClientXMPP):
         self.unmute_tasks: dict[JID, asyncio.Task] = {}
         self.cmd_parser = get_cmd_parser()
 
+        self.last_info_msg = None
+
         self.add_event_handler("session_start", self._session_start)
 
         for room in self.rooms:
+            self.add_event_handler(f"muc::{room}::message", self._muc_message)
             self.add_event_handler(f"muc::{room}::presence", self._muc_presence_change)
         self.add_event_handler(f"muc::{self.command_room}::message", self._muc_command_message)
 
@@ -340,6 +347,34 @@ class ModBot(ClientXMPP):
                 await self.plugin["xep_0045"].set_role(room, nick, "participant")
             except IqError:
                 logger.exception("Unmuting %s (%s) on join failed.", nick, jid)
+
+    async def _muc_message(self, msg):
+        """Process messages in the MUC room.
+
+        Respond to messages highlighting the bots name with an
+        informative message. After responding once, cool down before
+        responding again to avoid spamming info messages when mentioned
+        repeatedly.
+
+        Arguments:
+            msg (slixmpp.stanza.message.Message): Received MUC message
+        """
+        if msg['mucnick'] == self.nick or self.nick.lower() not in msg['body'].lower():
+            return
+
+        if (
+            self.last_info_msg and
+            self.last_info_msg + timedelta(seconds=INFO_MSG_COOLDOWN_SECONDS) > datetime.now(
+                tz=timezone.utc)
+        ):
+            return
+
+        self.last_info_msg = datetime.now(tz=timezone.utc)
+        self.send_message(mto=msg['from'].bare,
+                          mbody="I am just a bot and I'm here to monitor that you respect the "
+                                "terms of use and interact with each other in a respectful "
+                                "manner.",
+                          mtype='groupchat')
 
     async def _muc_command_message(self, msg: Message) -> None:
         """Process messages in the command MUC room.
