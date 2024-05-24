@@ -21,31 +21,7 @@ from io import BytesIO, StringIO
 from unittest import TestCase
 from unittest.mock import patch
 
-from hypothesis import given
-from hypothesis import strategies as st
-
-from xpartamupp.utils import ArgumentParserWithConfigFile, LimitedSizeDict
-
-
-class TestLimitedSizeDict(TestCase):
-    """Test limited size dict."""
-
-    @given(st.integers(min_value=2, max_value=2**10))
-    def test_max_items(self, size_limit):
-        """Test max items of dicts.
-
-        Test that the dict doesn't grow indefinitely and that the
-        oldest entries are removed first.
-        """
-        test_dict = LimitedSizeDict(size_limit=size_limit)
-        for i in range(size_limit):
-            test_dict[i] = i
-        self.assertEqual(size_limit, len(test_dict))
-        test_dict[size_limit + 1] = size_limit + 1
-        self.assertEqual(size_limit, len(test_dict))
-        self.assertFalse(0 in test_dict.values())
-        self.assertTrue(1 in test_dict.values())
-        self.assertTrue(size_limit + 1 in test_dict.values())
+from xpartamupp.utils import ArgumentParserWithConfigFile
 
 
 class TestArgumentParserWithConfigFile(TestCase):

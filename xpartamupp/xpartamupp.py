@@ -26,6 +26,7 @@ from argparse import ArgumentDefaultsHelpFormatter
 from asyncio import Future
 from datetime import datetime, timedelta, timezone
 
+from cachetools import FIFOCache
 from slixmpp import ClientXMPP
 from slixmpp.jid import JID
 from slixmpp.stanza import Iq
@@ -34,7 +35,7 @@ from slixmpp.xmlstream.matcher import StanzaPath
 from slixmpp.xmlstream.stanzabase import register_stanza_plugin
 
 from xpartamupp.stanzas import GameListXmppPlugin
-from xpartamupp.utils import ArgumentParserWithConfigFile, LimitedSizeDict
+from xpartamupp.utils import ArgumentParserWithConfigFile
 
 # Number of seconds to not respond to mentions after having responded
 # to a mention.
@@ -48,7 +49,7 @@ class Games:
 
     def __init__(self):
         """Initialize with empty games."""
-        self.games = LimitedSizeDict(size_limit=2 ** 7)
+        self.games = FIFOCache(maxsize=2 ** 7)
 
     def add_game(self, jid, data):
         """Add a game.
