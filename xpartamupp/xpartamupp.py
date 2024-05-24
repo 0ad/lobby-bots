@@ -67,9 +67,19 @@ class Games:
             data['nbp-init'] = data['nbp']
             data['state'] = 'init'
         except (KeyError, TypeError, ValueError):
-            logger.warning("Received invalid data for add game from 0ad: %s", data)
+            logger.warning("Received invalid data for add game from %s: %s", jid, data)
             return False
         else:
+            if jid not in self.games:
+                logger.info('%s registered a game with the name "%s"', jid, data.get("name"))
+            else:
+                immutable_keys = ["IP", "name", "hostJID", "hostUsername", "mods"]
+                for key, value in data.items():
+                    if key in immutable_keys and self.games[jid].get(key) != value:
+                        logger.warning(
+                            "Game hosted by %s changed immutable property \"%s\": "
+                            "\"%s\" -> \"%s\"", jid, key, self.games[jid].get(key), value)
+
             self.games[jid] = data
             return True
 
@@ -128,7 +138,7 @@ class Games:
             self.games[jid]['nbp'] = data['nbp']
             self.games[jid]['players'] = data['players']
         except (KeyError, ValueError):
-            logger.warning("Received invalid data for change game state from 0ad: %s", data)
+            logger.warning("Received invalid data for change game state from %s: %s", jid, data)
             return False
         else:
             if 'startTime' not in self.games[jid]:
