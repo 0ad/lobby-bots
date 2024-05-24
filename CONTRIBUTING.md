@@ -74,48 +74,35 @@ one to use as command line parameter:
 tox -e py37
 ```
 
-## Docker
+## Set up a custom lobby and run the bots locally
 
-To offer an easy way to run the bots locally for testing, this repository contains a Docker
-Compose configuration to run Docker containers for ejabberd, XpartaMuPP and EcheLOn.
+Before submitting pull requests, please test changes you made. If you need a custom lobby
+environment for that, you can use the code and instructions from
+https://github.com/0ad/lobby-infrastructure to set up a virtual machine running the lobby and
+instances of the bots.
 
-To run the docker containers you need to have [Docker](https://www.docker.com/) and
-[Docker Compose](https://docs.docker.com/compose/install/) installed.
-
-After installing them, you can start the Docker containers like that:
-
-```
-DOCKER_BUILDKIT=1 docker-compose up
-```
-
-Once started there is an ejabberd server running in a Docker container, exposing the ports
+Once started there is an ejabberd server running in a virtual machine, exposing the ports
 necessary to connect to it on localhost. This ejabberd server has the proper configuration set to
 be used as lobby for pyrogenesis, including a MUC room called `arena` and has accounts registered
-for `xpartamupp`, `echelon`. There also exist three additional accounts (`player1`, `player2`,
-`player3`) for testing purposes. The password for all of these accounts is identical to the
-username. If necessary additional accounts can be created through `ejabberdctl`.
+for `xpartamupp`, `echelon` and `modbot`. Additional accounts can be created through `ejabberdctl`,
+after connecting to the virtual machine using SSH. An instance of each bot is running in the
+virtual machine as well.
 
-To be able to connect with pyrogenesis to the started ejabberd instance, you'll now need to add an
-entry to your `hosts`-file to resolve `ejabberd` to `127.0.0.1`. If you're running Linux that means
-that you'll need to add the following line to `/etc/hosts`. If you're running another operating
-system the [location of the `hosts`-file](https://en.wikipedia.org/wiki/Hosts_(file)#Location_in_the_file_system)
-might be different.
-
-```
-127.0.0.1   ejabberd
-```
+To test your own code you can either update the lobby bots in the virtual machine to use your
+modified code or stop their instances and run them locally and connect them to the ejabberd
+instance in the virtual machine.
 
 Once done, all which is left to do now is to tell pyrogenesis to use the lobby running in the
-Docker containers. You can do that by starting it with the following command line options. Ensure
+virtual machine. You can do that by starting it with the following command line options. Ensure
 to back up your original configuration before, as starting pyrogenesis like that will overwrite the
 existing config:
 
 ```
 pyrogenesis \
   -conf=lobby.room:arena \
-  -conf=lobby.server:ejabberd \
+  -conf=lobby.server:localhost \
   -conf=lobby.stun.enabled:true \
-  -conf=lobby.stun.server:ejabberd \
+  -conf=lobby.stun.server:localhost \
   -conf=lobby.xpartamupp:xpartamupp \
   -conf=lobby.echelon:echelon \
   -conf=lobby.login:player1 \
@@ -127,50 +114,3 @@ Do note that it currently isn't possible to successful log in into the lobby whe
 password interactively in pyrogenesis, unless the user was created via pyrogenesis as well, as
 pyrogenesis applies client-side hashing of the password and uses the hashed password as actual
 password. So you have to provide the password as a command line parameter as shown above.
-
-### mod_ipstamp
-
-The instructions above don't install `mod_ipstamp`, as `mod_ipstamp` is usually not necessary for
-testing the bots and installing it requires some additional steps after the ejabberd container is
-up. In case you want to in `mod_ipstamp`, here are the commands you need to run to do so:
-
-```
-docker-compose exec ejabberd bin/ejabberdctl module_install mod_ipstamp
-docker-compose exec ejabberd \
-  sed -i 's#^modules:$#modules:\n  mod_ipstamp: {}#g' /opt/ejabberd/conf/ejabberd.yml
-docker-compose exec ejabberd bin/ejabberdctl reload_config
-```
-
-### Persistent ratings database
-
-With the instructions to run the Docker containers above EcheLOn's ratings database is ephemeral
-and will get recreated when rebuilding the Docker images. If you want to have a persistent ratings
-database you can also use outside the Docker Container, a few additional steps are necessary.
-
-First of all you'll need to install the bots itself on your host machine, as they contain a
-command to create database files. You can do that like this:
-
-```
-pip install -e .
-```
-
-As a next step you can create the ratings SQLite database file:
-
-```
-echelon-db create
-```
-
-Depending on your operating system you'll also need to change the file permissions on the newly
-created file to allow the Docker container to access it for reading and writing later on. On Linux
-you can do that with the following command:
-
-```
-setfacl -m u:999:rw lobby_rankings.sqlite3
-```
-
-Finally, you now have to start the Docker container slightly different to mount the created database
-file as volume into EcheLOn's container:
-
-```
-docker-compose -f docker-compose.yml -f docker-compose.persistent-db.yml up
-```
