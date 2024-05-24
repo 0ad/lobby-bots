@@ -631,6 +631,9 @@ class EcheLOn(ClientXMPP):
             msg (slixmpp.stanza.message.Message): Received MUC
                 message
         """
+        if msg["delay"]["stamp"]:
+            return
+
         if msg['mucnick'] == self.nick or self.nick.lower() not in msg['body'].lower():
             return
 
