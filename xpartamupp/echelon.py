@@ -679,10 +679,15 @@ class EcheLOn(ClientXMPP):
         if not iq['from'].resource.startswith('0ad'):
             return
 
+        iq_r = iq.reply()
+
         try:
             self.report_manager.add_report(iq['from'], iq['gamereport']['game'])
         except Exception:
             logger.exception("Failed to update game statistics for %s", iq['from'].bare)
+            iq_r["error"]["condition"] = "internal-server-error"
+
+        iq_r.send()
 
         rating_messages = self.leaderboard.get_rating_messages()
         if rating_messages:
