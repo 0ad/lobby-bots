@@ -19,12 +19,20 @@
 
 import argparse
 import enum
-
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import partial
+from typing import Any, ClassVar
 
-from sqlalchemy import (DateTime, ForeignKey, String, TypeDecorator, UnicodeText, create_engine,
-                        func, select)
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    String,
+    TypeDecorator,
+    UnicodeText,
+    create_engine,
+    func,
+    select,
+)
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, aliased, mapped_column, object_session
 
@@ -40,13 +48,13 @@ class TZDateTime(TypeDecorator):
         if value is not None:
             if not value.tzinfo or value.tzinfo.utcoffset(value) is None:
                 raise TypeError("timezone aware datetime object required")
-            value = value.astimezone(timezone.utc).replace(tzinfo=None)
+            value = value.astimezone(UTC).replace(tzinfo=None)
         return value
 
     def process_result_value(self, value, _):
         """Add UTC as timezone for values returned from the database."""
         if value is not None:
-            value = value.replace(tzinfo=timezone.utc)
+            value = value.replace(tzinfo=UTC)
         return value
 
 
@@ -56,7 +64,7 @@ class Base(DeclarativeBase):
     Defaults to use a timezone aware datatype for datetimes.
     """
 
-    type_annotation_map = {
+    type_annotation_map: ClassVar[dict[str, TypeDecorator]] = {
         datetime: TZDateTime(),
     }
 
@@ -90,7 +98,7 @@ class ProfanityIncident(Base):
 
 
 class JIDNickWhitelist(Base):
-    """Model for whitelisting JIDs which are allowed to change their nick."""
+    """Model for JIDs which are permitted to change their nick."""
 
     __tablename__ = "jid_nick_whitelist"
 
@@ -115,13 +123,13 @@ class ModerationEvent(Base):
     __tablename__ = "moderation_events"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    event_date: Mapped[datetime] = mapped_column(default=partial(datetime.now, tz=timezone.utc))
+    event_date: Mapped[datetime] = mapped_column(default=partial(datetime.now, tz=UTC))
     event_type: Mapped[EventType]
-    moderator: Mapped[str] = mapped_column(String(255), ForeignKey('moderators.jid'))
+    moderator: Mapped[str] = mapped_column(String(255), ForeignKey("moderators.jid"))
     player: Mapped[str] = mapped_column(String(255))
     reason: Mapped[str] = mapped_column(UnicodeText)
 
-    __mapper_args__ = {
+    __mapper_args__: ClassVar[dict[str, Any]] = {
         "polymorphic_on": "event_type",
         "polymorphic_abstract": True,
     }
@@ -142,13 +150,17 @@ class MuteEvent(ModerationEvent):
 
         Returns true if a mute event is active and false if not.
         """
-        in_time_range = self.event_date <= datetime.now(tz=timezone.utc) < self.mute_end
-        not_unmuted = not bool(object_session(self).execute(
-            select(UnmuteEvent)
-            .filter_by(player=self.player)
-            .filter(UnmuteEvent.event_date >= self.event_date)
-            .filter(UnmuteEvent.event_date < self.mute_end)
-        ).first())
+        in_time_range = self.event_date <= datetime.now(tz=UTC) < self.mute_end
+        not_unmuted = not bool(
+            object_session(self)
+            .execute(
+                select(UnmuteEvent)
+                .filter_by(player=self.player)
+                .filter(UnmuteEvent.event_date >= self.event_date)
+                .filter(UnmuteEvent.event_date < self.mute_end)
+            )
+            .first()
+        )
 
         return in_time_range and not_unmuted
 
@@ -164,18 +176,22 @@ class MuteEvent(ModerationEvent):
         Returns an SQLAlchemy filter expression to filter for active
         mute events.
         """
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         in_time_range = (cls.event_date <= now) & (now < cls.mute_end)
         unmute_event_alias = aliased(UnmuteEvent)
-        unmuted = (select(func.count("*")).select_from(unmute_event_alias)
-                   .filter(unmute_event_alias.player == cls.player)
-                   .filter(unmute_event_alias.event_date >= cls.event_date)
-                   .filter(unmute_event_alias.event_date < cls.mute_end)
-                   .limit(1).as_scalar())
+        unmuted = (
+            select(func.count("*"))
+            .select_from(unmute_event_alias)
+            .filter(unmute_event_alias.player == cls.player)
+            .filter(unmute_event_alias.event_date >= cls.event_date)
+            .filter(unmute_event_alias.event_date < cls.mute_end)
+            .limit(1)
+            .as_scalar()
+        )
 
         return in_time_range & ~unmuted
 
-    __mapper_args__ = {
+    __mapper_args__: ClassVar[dict[str, Any]] = {
         "polymorphic_identity": EventType.mute,
     }
 
@@ -183,7 +199,7 @@ class MuteEvent(ModerationEvent):
 class UnmuteEvent(ModerationEvent):
     """Model for an unmute event."""
 
-    __mapper_args__ = {
+    __mapper_args__: ClassVar[dict[str, Any]] = {
         "polymorphic_identity": EventType.unmute,
     }
 
@@ -191,7 +207,7 @@ class UnmuteEvent(ModerationEvent):
 class KickEvent(ModerationEvent):
     """Model for a kick event."""
 
-    __mapper_args__ = {
+    __mapper_args__: ClassVar[dict[str, Any]] = {
         "polymorphic_identity": EventType.kick,
     }
 
@@ -199,7 +215,7 @@ class KickEvent(ModerationEvent):
 class Moderator(Base):
     """Model for storing the JIDs of lobby moderators."""
 
-    __tablename__ = 'moderators'
+    __tablename__ = "moderators"
 
     jid: Mapped[str] = mapped_column(String(255), primary_key=True)
 
@@ -211,12 +227,16 @@ def parse_args():
          Parsed command line arguments
 
     """
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description="Helper command for database creation")
-    parser.add_argument('action', help='Action to apply to the database',
-                        choices=['create'])
-    parser.add_argument('--database-url', help='URL for the moderation database',
-                        default='sqlite:///lobby_moderation.sqlite3')
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="Helper command for database creation",
+    )
+    parser.add_argument("action", help="Action to apply to the database", choices=["create"])
+    parser.add_argument(
+        "--database-url",
+        help="URL for the moderation database",
+        default="sqlite:///lobby_moderation.sqlite3",
+    )
     return parser.parse_args()
 
 
@@ -224,9 +244,9 @@ def main():
     """Entry point a console script."""
     args = parse_args()
     engine = create_engine(args.database_url)
-    if args.action == 'create':
+    if args.action == "create":
         Base.metadata.create_all(engine)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

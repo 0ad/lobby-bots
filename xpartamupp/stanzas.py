@@ -16,17 +16,19 @@
 
 """0ad-specific XMPP-stanzas."""
 
+from typing import ClassVar
+
 from slixmpp.xmlstream import ET, ElementBase
 
 
 class BoardListXmppPlugin(ElementBase):
     """Class for custom boardlist and ratinglist stanza extension."""
 
-    name = 'query'
-    namespace = 'jabber:iq:boardlist'
-    interfaces = {'board', 'command'}
+    name = "query"
+    namespace = "jabber:iq:boardlist"
+    interfaces: ClassVar[set[str]] = {"board", "command"}
     sub_interfaces = interfaces
-    plugin_attrib = 'boardlist'
+    plugin_attrib = "boardlist"
 
     def add_command(self, command):
         """Add a command to the extension.
@@ -34,7 +36,7 @@ class BoardListXmppPlugin(ElementBase):
         Arguments:
             command (str): Command to add
         """
-        self.xml.append(ET.fromstring('<command>%s</command>' % command))
+        self.xml.append(ET.fromstring(f"<command>{command}</command>"))
 
     def add_item(self, name, rating):
         """Add an item to the extension.
@@ -43,17 +45,17 @@ class BoardListXmppPlugin(ElementBase):
             name (str): Name of the player to add
             rating (int): Rating of the player to add
         """
-        self.xml.append(ET.Element('board', {'name': name, 'rating': str(rating)}))
+        self.xml.append(ET.Element("board", {"name": name, "rating": str(rating)}))
 
 
 class GameListXmppPlugin(ElementBase):
     """Class for custom gamelist stanza extension."""
 
-    name = 'query'
-    namespace = 'jabber:iq:gamelist'
-    interfaces = {'game', 'command'}
+    name = "query"
+    namespace = "jabber:iq:gamelist"
+    interfaces: ClassVar[set[str]] = {"game", "command"}
     sub_interfaces = interfaces
-    plugin_attrib = 'gamelist'
+    plugin_attrib = "gamelist"
 
     def add_game(self, data):
         """Add a game to the extension.
@@ -62,11 +64,11 @@ class GameListXmppPlugin(ElementBase):
             data (dict): game data to add
         """
         try:
-            del data['ip']  # Don't send the IP address with the gamelist.
+            del data["ip"]  # Don't send the IP address with the gamelist.
         except KeyError:
             pass
 
-        self.xml.append(ET.Element('game', data))
+        self.xml.append(ET.Element("game", data))
 
     def get_game(self):
         """Get game from stanza.
@@ -77,7 +79,7 @@ class GameListXmppPlugin(ElementBase):
             dict with game data
 
         """
-        game = self.xml.find('{%s}game' % self.namespace)
+        game = self.xml.find(f"{{{self.namespace}}}game")
         data = {}
 
         if game is not None:
@@ -89,10 +91,10 @@ class GameListXmppPlugin(ElementBase):
 class GameReportXmppPlugin(ElementBase):
     """Class for custom gamereport stanza extension."""
 
-    name = 'report'
-    namespace = 'jabber:iq:gamereport'
-    plugin_attrib = 'gamereport'
-    interfaces = 'game'
+    name = "report"
+    namespace = "jabber:iq:gamereport"
+    plugin_attrib = "gamereport"
+    interfaces = "game"
     sub_interfaces = interfaces
 
     def add_game(self, game_report):
@@ -102,7 +104,7 @@ class GameReportXmppPlugin(ElementBase):
             game_report (dict): a report about a game
 
         """
-        self.xml.append(ET.fromstring(str(game_report)).find('{%s}game' % self.namespace))
+        self.xml.append(ET.fromstring(str(game_report)).find(f"{{{self.namespace}}}game"))
 
     def get_game(self):
         """Get game from stanza.
@@ -113,7 +115,7 @@ class GameReportXmppPlugin(ElementBase):
             dict with game information
 
         """
-        game = self.xml.find('{%s}game' % self.namespace)
+        game = self.xml.find(f"{{{self.namespace}}}game")
         data = {}
 
         if game is not None:
@@ -125,23 +127,25 @@ class GameReportXmppPlugin(ElementBase):
 class ProfileXmppPlugin(ElementBase):
     """Class for custom profile."""
 
-    name = 'query'
-    namespace = 'jabber:iq:profile'
-    interfaces = {'profile', 'command'}
+    name = "query"
+    namespace = "jabber:iq:profile"
+    interfaces: ClassVar[set[str]] = {"profile", "command"}
     sub_interfaces = interfaces
-    plugin_attrib = 'profile'
+    plugin_attrib = "profile"
 
     def add_command(self, player_nick):
         """Add a command to the extension.
 
         Arguments:
-            player_nick (str): the nick of the player the profile is about
+            player_nick (str): the nick of the player the profile is
+                               about
 
         """
-        self.xml.append(ET.fromstring('<command>%s</command>' % player_nick))
+        self.xml.append(ET.fromstring(f"<command>{player_nick}</command>"))
 
-    def add_item(self, player, rating, highest_rating=0,
-                 rank=0, total_games_played=0, wins=0, losses=0):
+    def add_item(
+        self, player, rating, highest_rating=0, rank=0, total_games_played=0, wins=0, losses=0
+    ):
         """Add an item to the extension.
 
         Arguments:
@@ -154,8 +158,16 @@ class ProfileXmppPlugin(ElementBase):
             wins (int): Number of won games the player had
             losses (int): Number of lost games the player had
         """
-        item_xml = ET.Element('profile', {'player': player, 'rating': str(rating),
-                                          'highestRating': str(highest_rating), 'rank': str(rank),
-                                          'totalGamesPlayed': str(total_games_played),
-                                          'wins': str(wins), 'losses': str(losses)})
+        item_xml = ET.Element(
+            "profile",
+            {
+                "player": player,
+                "rating": str(rating),
+                "highestRating": str(highest_rating),
+                "rank": str(rank),
+                "totalGamesPlayed": str(total_games_played),
+                "wins": str(wins),
+                "losses": str(losses),
+            },
+        )
         self.xml.append(item_xml)

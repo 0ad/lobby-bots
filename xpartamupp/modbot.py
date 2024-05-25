@@ -22,16 +22,23 @@ import logging
 import re
 import shlex
 import ssl
-
-from argparse import (ONE_OR_MORE, PARSER, SUPPRESS, Action, ArgumentDefaultsHelpFormatter,
-                      ArgumentError, ArgumentParser, HelpFormatter, Namespace,
-                      _MutuallyExclusiveGroup)
+from argparse import (
+    ONE_OR_MORE,
+    PARSER,
+    SUPPRESS,
+    Action,
+    ArgumentDefaultsHelpFormatter,
+    ArgumentError,
+    ArgumentParser,
+    HelpFormatter,
+    Namespace,
+    _MutuallyExclusiveGroup,
+)
 from asyncio import Future, Task
-from datetime import datetime, timedelta, timezone
-from typing import Iterable, Optional, Tuple
+from collections.abc import Iterable, Sequence
+from datetime import UTC, datetime, timedelta
 
 import dateparser
-
 from slixmpp import ClientXMPP, Message
 from slixmpp.exceptions import IqError
 from slixmpp.jid import JID
@@ -40,9 +47,15 @@ from sqlalchemy import create_engine, select, text
 from sqlalchemy.dialects.sqlite.base import SQLiteDialect
 from sqlalchemy.orm import scoped_session, sessionmaker
 
-from xpartamupp.lobby_moderation_db import (JIDNickWhitelist, KickEvent, Moderator, MuteEvent,
-                                            UnmuteEvent)
+from xpartamupp.lobby_moderation_db import (
+    JIDNickWhitelist,
+    KickEvent,
+    Moderator,
+    MuteEvent,
+    UnmuteEvent,
+)
 from xpartamupp.utils import ArgumentParserWithConfigFile
+
 
 # Number of seconds to not respond to mentions after having responded
 # to a mention.
@@ -75,8 +88,9 @@ class ModCmdParser(ArgumentParser):
         if action.choices is not None and value not in action.choices:
             raise ArgumentError(None, f"invalid command: !{value}")
 
-    def parse_known_args(self, args=None,  # pylint: disable=inconsistent-return-statements
-                         namespace=None) -> Tuple[Namespace, list[str]]:
+    def parse_known_args(
+        self, args: Sequence[str] | None = None, namespace: None = None
+    ) -> (tuple)[Namespace, list[str]]:
         """Parse known arguments.
 
         Adds a help command for printing usage information and
@@ -121,10 +135,15 @@ class ModBotArgumentsFormatter(HelpFormatter):
     def _format_choices(self, action: Action) -> str:
         """Format choice values."""
         choice_strs = ["!" + str(choice) for choice in action.choices]
-        return "%s" % ", ".join(choice_strs)
+        return ", ".join(choice_strs)
 
-    def add_usage(self, usage: Optional[str], actions: list[Action],
-                  groups: Iterable[_MutuallyExclusiveGroup], prefix=None) -> None:
+    def add_usage(
+        self,
+        _usage: str | None,
+        actions: Iterable[Action],
+        groups: Iterable[_MutuallyExclusiveGroup],
+        prefix: str | None = None,
+    ) -> None:
         """Suppress adding usage, as we only use help."""
         super().add_usage(SUPPRESS, actions, groups, prefix)
 
@@ -140,7 +159,7 @@ class ModBotSubparserArgumentFormatter(HelpFormatter):
     def _format_args(self, action: Action, default_metavar: str) -> str:
         """Format arguments as desired."""
         if action.nargs == ONE_OR_MORE:
-            return "%s" % default_metavar
+            return default_metavar
         return super()._format_args(action, default_metavar)
 
 
@@ -149,32 +168,47 @@ def get_cmd_parser() -> ArgumentParser:
 
     This parser is used to parse commands submitted via XMPP.
     """
-    cmd_parser = ModCmdParser(add_help=False, allow_abbrev=False,
-                              formatter_class=ModBotArgumentsFormatter, prog="")
+    cmd_parser = ModCmdParser(
+        add_help=False, allow_abbrev=False, formatter_class=ModBotArgumentsFormatter, prog=""
+    )
 
     cmd_subparsers = cmd_parser.add_subparsers(required=True, dest="command", title="commands")
 
-    mute_parser = cmd_subparsers.add_parser("mute",
-                                            formatter_class=ModBotSubparserArgumentFormatter)
+    mute_parser = cmd_subparsers.add_parser(
+        "mute", formatter_class=ModBotSubparserArgumentFormatter
+    )
     mute_parser.add_argument("user", help="nick of the user to mute")
-    mute_parser.add_argument("duration",
-                             help='a duration like 5m, 10h. Multi-word terms work as well, but '
-                                  'need to be put in quotes like "2 months"')
-    mute_parser.add_argument("reason", nargs="+", help="violation of the terms, which is the "
-                                                       "reason for the mute. It'll also be shown "
-                                                       "to the user.")
+    mute_parser.add_argument(
+        "duration",
+        help="a duration like 5m, 10h. Multi-word terms work as well, but "
+        'need to be put in quotes like "2 months"',
+    )
+    mute_parser.add_argument(
+        "reason",
+        nargs="+",
+        help="violation of the terms, which is the "
+        "reason for the mute. It'll also be shown "
+        "to the user.",
+    )
     cmd_subparsers.add_parser("mutelist", formatter_class=ModBotSubparserArgumentFormatter)
-    unmute_parser = cmd_subparsers.add_parser("unmute",
-                                              formatter_class=ModBotSubparserArgumentFormatter)
+    unmute_parser = cmd_subparsers.add_parser(
+        "unmute", formatter_class=ModBotSubparserArgumentFormatter
+    )
     unmute_parser.add_argument("user", help="nick of the user to unmute")
-    unmute_parser.add_argument("reason", nargs="+", help="reason for unmuting the user. It won't"
-                                                         "be shown to the user.")
-    kick_parser = cmd_subparsers.add_parser("kick",
-                                            formatter_class=ModBotSubparserArgumentFormatter)
+    unmute_parser.add_argument(
+        "reason", nargs="+", help="reason for unmuting the user. It won't" "be shown to the user."
+    )
+    kick_parser = cmd_subparsers.add_parser(
+        "kick", formatter_class=ModBotSubparserArgumentFormatter
+    )
     kick_parser.add_argument("user", help="nick of the user to kick")
-    kick_parser.add_argument("reason", nargs="+", help="violation of the terms, which is the "
-                                                       "reason for the kick. It'll also be shown "
-                                                       "to the user.")
+    kick_parser.add_argument(
+        "reason",
+        nargs="+",
+        help="violation of the terms, which is the "
+        "reason for the kick. It'll also be shown "
+        "to the user.",
+    )
     return cmd_parser
 
 
@@ -194,8 +228,16 @@ def create_task(*args, **kwargs) -> Task:
 class ModBot(ClientXMPP):
     """Main class which for reacting to moderation requests."""
 
-    def __init__(self, jid: JID, password: str, nick: str, rooms: list[JID], command_room: JID,
-                 db_url: str, verify_certificate: bool = True) -> None:
+    def __init__(
+        self,
+        jid: JID,
+        password: str,
+        nick: str,
+        rooms: list[JID],
+        command_room: JID,
+        db_url: str,
+        verify_certificate: bool = True,
+    ) -> None:
         """Initialize ModBot.
 
         Arguments:
@@ -203,7 +245,8 @@ class ModBot(ClientXMPP):
              password (str): password to use for authentication
              nick (str): Nick to use in MUC
              rooms (list(JID)): List of XMPP MUC rooms to join
-             command_room (JID): XMPP MUC room to join for receiving commands
+             command_room (JID): XMPP MUC room to join for receiving
+                                 commands
              db_url (str): URL for the database connection
              verify_certificate (bool): Whether to verify the TLS
                                         certificate provided by the
@@ -263,7 +306,7 @@ class ModBot(ClientXMPP):
 
         with self.db_session() as db:
             for mute in db.execute(
-                    select(MuteEvent).filter_by(is_active=True).order_by(MuteEvent.mute_end)
+                select(MuteEvent).filter_by(is_active=True).order_by(MuteEvent.mute_end)
             ).scalars():
                 task = create_task(self._unmute_after_mute_ended(mute.mute_end, JID(mute.player)))
                 self.unmute_tasks[mute.player] = task
@@ -323,23 +366,28 @@ class ModBot(ClientXMPP):
         jid = JID(presence["muc"]["jid"])
         role = presence["muc"]["role"]
         room = presence["muc"]["room"]
-        logger.debug("User \"%s\" connected with a nick \"%s\".", jid, nick)
+        logger.debug('User "%s" connected with a nick "%s".', jid, nick)
 
         if not await self._check_matching_nick(jid, nick, JID(presence["muc"]["room"])):
             return
 
         with self.db_session() as db:
-            mute_event = db.execute(
-                select(MuteEvent)
-                .filter_by(is_active=True)
-                .filter_by(player=str(jid.bare).lower())
-                .order_by(MuteEvent.mute_end.desc())
-            ).scalars().first()
+            mute_event = (
+                db.execute(
+                    select(MuteEvent)
+                    .filter_by(is_active=True)
+                    .filter_by(player=str(jid.bare).lower())
+                    .order_by(MuteEvent.mute_end.desc())
+                )
+                .scalars()
+                .first()
+            )
 
         if mute_event and role == "participant":
             try:
-                await self.plugin["xep_0045"].set_role(room, nick, "visitor",
-                                                       reason=mute_event.reason)
+                await self.plugin["xep_0045"].set_role(
+                    room, nick, "visitor", reason=mute_event.reason
+                )
             except IqError:
                 logger.exception("Muting %s (%s) on join failed.", nick, jid)
         elif not mute_event and role == "visitor":
@@ -362,22 +410,22 @@ class ModBot(ClientXMPP):
         if msg["delay"]["stamp"]:
             return
 
-        if msg['mucnick'] == self.nick or self.nick.lower() not in msg['body'].lower():
+        if msg["mucnick"] == self.nick or self.nick.lower() not in msg["body"].lower():
             return
 
-        if (
-            self.last_info_msg and
-            self.last_info_msg + timedelta(seconds=INFO_MSG_COOLDOWN_SECONDS) > datetime.now(
-                tz=timezone.utc)
-        ):
+        if self.last_info_msg and self.last_info_msg + timedelta(
+            seconds=INFO_MSG_COOLDOWN_SECONDS
+        ) > datetime.now(tz=UTC):
             return
 
-        self.last_info_msg = datetime.now(tz=timezone.utc)
-        self.send_message(mto=msg['from'].bare,
-                          mbody="I am just a bot and I'm here to monitor that you respect the "
-                                "terms of use and interact with each other in a respectful "
-                                "manner.",
-                          mtype='groupchat')
+        self.last_info_msg = datetime.now(tz=UTC)
+        self.send_message(
+            mto=msg["from"].bare,
+            mbody="I am just a bot and I'm here to monitor that you respect the "
+            "terms of use and interact with each other in a respectful "
+            "manner.",
+            mtype="groupchat",
+        )
 
     async def _muc_command_message(self, msg: Message) -> None:
         """Process messages in the command MUC room.
@@ -392,8 +440,9 @@ class ModBot(ClientXMPP):
         if msg["delay"]["stamp"]:
             return
 
-        moderator = JID(self.plugin["xep_0045"].get_jid_property(msg["from"].bare, msg["mucnick"],
-                                                                 "jid")).bare
+        moderator = JID(
+            self.plugin["xep_0045"].get_jid_property(msg["from"].bare, msg["mucnick"], "jid")
+        ).bare
 
         try:
             command = re.match(rf"({self.nick.lower()}:?\s*!?|!)(.+)", msg_body, re.IGNORECASE)[2]
@@ -402,8 +451,9 @@ class ModBot(ClientXMPP):
 
         with self.db_session() as db:
             if not db.get(Moderator, moderator):
-                logger.warning("User %s, who is not a moderator, tried to execute a command",
-                               msg["from"])
+                logger.warning(
+                    "User %s, who is not a moderator, tried to execute a command", msg["from"]
+                )
                 return
 
         try:
@@ -438,36 +488,51 @@ class ModBot(ClientXMPP):
                              event
             reason (str): reason for muting the user
         """
-        dateparser_settings = {"TIMEZONE": "UTC", "RETURN_AS_TIMEZONE_AWARE": True,
-                               "PREFER_DATES_FROM": "future"}
+        dateparser_settings = {
+            "TIMEZONE": "UTC",
+            "RETURN_AS_TIMEZONE_AWARE": True,
+            "PREFER_DATES_FROM": "future",
+        }
         # Workaround for https://github.com/scrapinghub/dateparser/issues/1012
         duration = re.sub(r"(\d)([dhms])(\d)", r"\1\2 \3", duration)
         mute_end: datetime = dateparser.parse(duration, settings=dateparser_settings)
-        if not mute_end or (not datetime.now(tz=timezone.utc) < mute_end <= dateparser.parse(
-                "5 years", settings=dateparser_settings)):
-            self.send_message(mto=self.command_room,
-                              mbody="The mute duration must be between 0 seconds and 5 years",
-                              mtype="groupchat")
+        if not mute_end or (
+            not datetime.now(tz=UTC)
+            < mute_end
+            <= dateparser.parse("5 years", settings=dateparser_settings)
+        ):
+            self.send_message(
+                mto=self.command_room,
+                mbody="The mute duration must be between 0 seconds and 5 years",
+                mtype="groupchat",
+            )
             return
 
         with self.db_session() as db:
-            active_mute = db.execute(
-                select(MuteEvent)
-                .filter_by(is_active=True)
-                .filter_by(player=str(user))
-                .order_by(MuteEvent.mute_end.desc())
-            ).scalars().first()
+            active_mute = (
+                db.execute(
+                    select(MuteEvent)
+                    .filter_by(is_active=True)
+                    .filter_by(player=str(user))
+                    .order_by(MuteEvent.mute_end.desc())
+                )
+                .scalars()
+                .first()
+            )
             if active_mute:
-                self.send_message(mto=self.command_room,
-                                  mbody=f"\"{user.node}\" is already muted until "
-                                        f"{active_mute.mute_end.strftime('%Y-%m-%d %H:%M:%S %Z')} "
-                                        f"for the following reason:\n"
-                                        f"> {active_mute.reason}",
-                                  mtype="groupchat")
+                self.send_message(
+                    mto=self.command_room,
+                    mbody=f'"{user.node}" is already muted until '
+                    f"{active_mute.mute_end.strftime('%Y-%m-%d %H:%M:%S %Z')} "
+                    f"for the following reason:\n"
+                    f"> {active_mute.reason}",
+                    mtype="groupchat",
+                )
                 return
 
-            mute_event = MuteEvent(player=str(user), moderator=str(moderator), mute_end=mute_end,
-                                   reason=reason)
+            mute_event = MuteEvent(
+                player=str(user), moderator=str(moderator), mute_end=mute_end, reason=reason
+            )
             db.add(mute_event)
             db.commit()
 
@@ -478,7 +543,7 @@ class ModBot(ClientXMPP):
             try:
                 await self.plugin["xep_0045"].set_role(room, nick, "visitor", reason=reason)
             except IqError:
-                msg = f"Muting \"{nick}\" in {room} failed."
+                msg = f'Muting "{nick}" in {room} failed.'
                 logger.exception(msg)
                 self.send_message(mto=self.command_room, mbody=msg, mtype="groupchat")
 
@@ -491,10 +556,12 @@ class ModBot(ClientXMPP):
             old_task.cancel()
         self.unmute_tasks[user] = task
 
-        self.send_message(mto=self.command_room,
-                          mbody=f"\"{user.node}\" is now muted until "
-                                f"{mute_end.strftime('%Y-%m-%d %H:%M:%S %Z')}",
-                          mtype="groupchat")
+        self.send_message(
+            mto=self.command_room,
+            mbody=f'"{user.node}" is now muted until '
+            f"{mute_end.strftime('%Y-%m-%d %H:%M:%S %Z')}",
+            mtype="groupchat",
+        )
 
     async def send_mutelist(self) -> None:
         """Send a list of muted users to the command MUC room."""
@@ -504,7 +571,7 @@ class ModBot(ClientXMPP):
 
         with self.db_session() as db:
             for mute in db.execute(
-                    select(MuteEvent).filter_by(is_active=True).order_by(MuteEvent.player)
+                select(MuteEvent).filter_by(is_active=True).order_by(MuteEvent.player)
             ).scalars():
                 nick = JID(mute.player).node
                 muted_users[nick] = mute
@@ -513,17 +580,19 @@ class ModBot(ClientXMPP):
             for nick, mute in muted_users.items():
                 message_content.append(
                     f"{nick.ljust(max_nick_length)}\t"
-                    f"{mute.mute_end.strftime('%Y-%m-%d %H:%M:%S %Z')}\t{mute.reason}")
+                    f"{mute.mute_end.strftime('%Y-%m-%d %H:%M:%S %Z')}\t{mute.reason}"
+                )
 
         if muted_users:
-            header = "*nick*".ljust(max_nick_length) + "\t*muted until*".ljust(
-                23) + "\t*reason*\n"
-            self.send_message(mto=self.command_room, mbody=header + "\n".join(message_content),
-                              mtype="groupchat")
+            header = "*nick*".ljust(max_nick_length) + "\t*muted until*".ljust(23) + "\t*reason*\n"
+            self.send_message(
+                mto=self.command_room, mbody=header + "\n".join(message_content), mtype="groupchat"
+            )
             return
 
-        self.send_message(mto=self.command_room, mbody="No users muted right now.",
-                          mtype="groupchat")
+        self.send_message(
+            mto=self.command_room, mbody="No users muted right now.", mtype="groupchat"
+        )
 
     async def unmute_user(self, user: JID, moderator: JID, reason: str) -> None:
         """Unmute a user.
@@ -546,7 +615,7 @@ class ModBot(ClientXMPP):
             try:
                 await self.plugin["xep_0045"].set_role(room, nick, "participant", reason=reason)
             except IqError:
-                msg = f"Unmuting \"{nick}\" in {room} failed."
+                msg = f'Unmuting "{nick}" in {room} failed.'
                 logger.exception(msg)
                 self.send_message(mto=self.command_room, mbody=msg, mtype="groupchat")
 
@@ -557,8 +626,9 @@ class ModBot(ClientXMPP):
         else:
             task.cancel()
 
-        self.send_message(mto=self.command_room, mbody=f"\"{user.node}\" is now unmuted again.",
-                          mtype="groupchat")
+        self.send_message(
+            mto=self.command_room, mbody=f'"{user.node}" is now unmuted again.', mtype="groupchat"
+        )
 
     async def kick_user(self, user: JID, moderator: JID, reason: str) -> None:
         """Kick a user.
@@ -583,31 +653,37 @@ class ModBot(ClientXMPP):
             try:
                 await self.plugin["xep_0045"].set_role(room, nick, "none", reason=reason)
             except IqError:
-                logger.exception("Kicking \"%s\" from %s failed", user, room)
+                logger.exception('Kicking "%s" from %s failed', user, room)
                 rooms_kick_failed.append(room)
                 continue
 
             rooms_kicked_from.append(room)
 
         if not rooms_kicked_from:
-            self.send_message(mto=self.command_room,
-                              mbody=f"Kicking \"{user.node}\" failed. Nobody with this nick is "
-                                    "online right now.",
-                              mtype="groupchat")
+            self.send_message(
+                mto=self.command_room,
+                mbody=f'Kicking "{user.node}" failed. Nobody with this nick is '
+                "online right now.",
+                mtype="groupchat",
+            )
             return
 
         rooms_kicked_from_str = ", ".join([str(room.local) for room in rooms_kicked_from])
-        self.send_message(mto=self.command_room,
-                          mbody=f"Kicked \"{user.node}\" from the following MUC rooms: "
-                                f"{rooms_kicked_from_str}",
-                          mtype="groupchat")
+        self.send_message(
+            mto=self.command_room,
+            mbody=f'Kicked "{user.node}" from the following MUC rooms: '
+            f"{rooms_kicked_from_str}",
+            mtype="groupchat",
+        )
 
         if rooms_kick_failed:
             rooms_kick_failed_str = {", ".join([str(room.local) for room in rooms_kick_failed])}
-            self.send_message(mto=self.command_room,
-                              mbody=f"Kicking \"{user.node}\" failed for the following MUC "
-                                    f"rooms: {rooms_kick_failed_str}",
-                              mtype="groupchat")
+            self.send_message(
+                mto=self.command_room,
+                mbody=f'Kicking "{user.node}" failed for the following MUC '
+                f"rooms: {rooms_kick_failed_str}",
+                mtype="groupchat",
+            )
             return
 
     async def _check_matching_nick(self, jid: JID, nick: str, room: JID) -> bool:
@@ -638,14 +714,15 @@ class ModBot(ClientXMPP):
             logger.info(reason)
 
         try:
-            await self.plugin["xep_0045"].set_role(room, nick, "none",
-                                                   reason="Don't try to impersonate other users")
+            await self.plugin["xep_0045"].set_role(
+                room, nick, "none", reason="Don't try to impersonate other users"
+            )
         except IqError:
             logger.warning("Something failed when trying to kick a user for JID nick mismatch.")
 
         return False
 
-    def _get_nick_with_proper_case(self, nick: str, room: JID) -> Optional[str]:
+    def _get_nick_with_proper_case(self, nick: str, room: JID) -> str | None:
         """Get the case-sensitive version of a case-insensitive nick.
 
         Arguments:
@@ -672,7 +749,7 @@ class ModBot(ClientXMPP):
                                   muted
             user (JID): JID of the user to unmute
         """
-        delay = unmute_dt - datetime.now(tz=timezone.utc)
+        delay = unmute_dt - datetime.now(tz=UTC)
         await asyncio.sleep(delay.total_seconds())
 
         for room in self.rooms:
@@ -697,33 +774,56 @@ def parse_args():
          Parsed command line arguments
 
     """
-    parser = ArgumentParserWithConfigFile(formatter_class=ArgumentDefaultsHelpFormatter,
-                                          description="ModBot - XMPP Moderation Bot")
+    parser = ArgumentParserWithConfigFile(
+        formatter_class=ArgumentDefaultsHelpFormatter, description="ModBot - XMPP Moderation Bot"
+    )
 
     verbosity_parser = parser.add_mutually_exclusive_group()
-    verbosity_parser.add_argument("-v", action="count", dest="verbosity", default=0,
-                                  help="Increase verbosity of logging. Can be provided up to "
-                                       "three times to get full debug logging")
-    verbosity_parser.add_argument("--verbosity", dest="verbosity", type=int,
-                                  help="Increase verbosity of logging. Supported values are 0 to 3"
-                                  )
+    verbosity_parser.add_argument(
+        "-v",
+        action="count",
+        dest="verbosity",
+        default=0,
+        help="Increase verbosity of logging. Can be provided up to "
+        "three times to get full debug logging",
+    )
+    verbosity_parser.add_argument(
+        "--verbosity",
+        dest="verbosity",
+        type=int,
+        help="Increase verbosity of logging. Supported values are 0 to 3",
+    )
 
-    parser.add_argument("-m", "--domain", help="XMPP server to connect to",
-                        default="lobby.wildfiregames.com")
+    parser.add_argument(
+        "-m", "--domain", help="XMPP server to connect to", default="lobby.wildfiregames.com"
+    )
     parser.add_argument("-l", "--login", help="username for login", default="modbot")
     parser.add_argument("-p", "--password", help="password for login", default="XXXXXX")
     parser.add_argument("-n", "--nickname", help="nickname to use in MUC rooms", default="ModBot")
-    parser.add_argument("-r", "--rooms", help="XMPP MUC rooms to monitor", default="arena",
-                        nargs="+")
-    parser.add_argument("--command-room", help="XMPP MUC room used by moderators",
-                        default="moderation")
-    parser.add_argument("--database-url", help="URL for the leaderboard database",
-                        default="sqlite:///lobby_moderation.sqlite3")
-    parser.add_argument("-s", "--server", help="address of the ejabberd server",
-                        action="store", dest="xserver", default=None)
-    parser.add_argument("--no-verify",
-                        help="Don't verify the TLS server certificate when connecting",
-                        action="store_true")
+    parser.add_argument(
+        "-r", "--rooms", help="XMPP MUC rooms to monitor", default="arena", nargs="+"
+    )
+    parser.add_argument(
+        "--command-room", help="XMPP MUC room used by moderators", default="moderation"
+    )
+    parser.add_argument(
+        "--database-url",
+        help="URL for the leaderboard database",
+        default="sqlite:///lobby_moderation.sqlite3",
+    )
+    parser.add_argument(
+        "-s",
+        "--server",
+        help="address of the ejabberd server",
+        action="store",
+        dest="xserver",
+        default=None,
+    )
+    parser.add_argument(
+        "--no-verify",
+        help="Don't verify the TLS server certificate when connecting",
+        action="store_true",
+    )
 
     return parser.parse_args()
 
@@ -742,14 +842,20 @@ def main():
         root_logger = logging.getLogger()
         root_logger.setLevel(log_level)
 
-    logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
-                        datefmt='%Y-%m-%dT%H:%M:%S%z')
+    logging.basicConfig(
+        format="%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%dT%H:%M:%S%z"
+    )
     logger.setLevel(log_level)
 
-    xmpp = ModBot(JID("%s@%s/%s" % (args.login, args.domain, "CC")), args.password, args.nickname,
-                  [JID(room + "@conference." + args.domain) for room in args.rooms],
-                  JID(args.command_room + "@conference." + args.domain), args.database_url,
-                  verify_certificate=not args.no_verify)
+    xmpp = ModBot(
+        JID(f"{args.login}@{args.domain}/CC"),
+        args.password,
+        args.nickname,
+        [JID(room + "@conference." + args.domain) for room in args.rooms],
+        JID(args.command_room + "@conference." + args.domain),
+        args.database_url,
+        verify_certificate=not args.no_verify,
+    )
     xmpp.register_plugin("xep_0045")  # Multi-User Chat
     xmpp.register_plugin("xep_0199", {"keepalive": True})  # XMPP Ping
 

@@ -43,6 +43,49 @@ echelon-db = "xpartamupp.lobby_ranking:main"
 modbot = "xpartamupp.modbot:main"
 xpartamupp = "xpartamupp.xpartamupp:main"
 
-[tool.isort]
-line_length = 99
-lines_between_types = 1
+[tool.ruff]
+line-length = 99
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "ANN002",
+    "ANN003",
+    "ANN101",
+    "ANN102",
+    "COM812",
+    "D104",
+    "EM",
+    "FBT",
+    "ISC001",
+    "PERF401",
+    "PLR2004",
+    "PT",
+    "PTH",
+    "SIM105",
+    "TRY003",
+    "UP038"
+]
+
+[tool.ruff.lint.flake8-annotations]
+ignore-fully-untyped = true
+suppress-dummy-args = true
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**.py" = ["S106"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 72
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.pylint]
+max-args = 8
+max-nested-blocks = 4

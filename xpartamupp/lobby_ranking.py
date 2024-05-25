@@ -18,11 +18,14 @@
 
 """Database schema used by the XMPP bots to store game information."""
 
+# ruff: noqa: N815
+
 import argparse
 
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, create_engine
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import declarative_base, relationship
+
 
 Base = declarative_base()
 
@@ -30,27 +33,27 @@ Base = declarative_base()
 class Player(Base):
     """Model representing players."""
 
-    __tablename__ = 'players'
+    __tablename__ = "players"
 
     id = Column(Integer, primary_key=True)
     jid = Column(String(255))
     rating = Column(Integer)
     highest_rating = Column(Integer)
     games = association_proxy("games_info", "game")
-    games_info = relationship('PlayerInfo', back_populates='player')
-    games_won = relationship('Game', back_populates='winner')
+    games_info = relationship("PlayerInfo", back_populates="player")
+    games_won = relationship("Game", back_populates="winner")
 
 
 class PlayerInfo(Base):
     """Model representing game results."""
 
-    __tablename__ = 'players_info'
+    __tablename__ = "players_info"
 
     id = Column(Integer, primary_key=True)
-    player_id = Column(Integer, ForeignKey('players.id'))
-    game_id = Column(Integer, ForeignKey('games.id'))
-    player = relationship('Player', back_populates='games_info')
-    game = relationship('Game', back_populates='player_info')
+    player_id = Column(Integer, ForeignKey("players.id"))
+    game_id = Column(Integer, ForeignKey("games.id"))
+    player = relationship("Player", back_populates="games_info")
+    game = relationship("Game", back_populates="player_info")
     civs = Column(String(20))
     teams = Column(Integer)
     economyScore = Column(Integer)
@@ -131,17 +134,17 @@ class PlayerInfo(Base):
 class Game(Base):
     """Model representing games."""
 
-    __tablename__ = 'games'
+    __tablename__ = "games"
 
     id = Column(Integer, primary_key=True)
     map = Column(String(80))
     duration = Column(Integer)
     teamsLocked = Column(Boolean)
     matchID = Column(String(20))
-    winner_id = Column(Integer, ForeignKey('players.id'))
-    player_info = relationship('PlayerInfo', back_populates='game')
+    winner_id = Column(Integer, ForeignKey("players.id"))
+    player_info = relationship("PlayerInfo", back_populates="game")
     players = association_proxy("player_info", "player")
-    winner = relationship('Player', back_populates='games_won')
+    winner = relationship("Player", back_populates="games_won")
 
 
 def parse_args():
@@ -151,12 +154,16 @@ def parse_args():
          Parsed command line arguments
 
     """
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                     description="Helper command for database creation")
-    parser.add_argument('action', help='Action to apply to the database',
-                        choices=['create'])
-    parser.add_argument('--database-url', help='URL for the leaderboard database',
-                        default='sqlite:///lobby_rankings.sqlite3')
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="Helper command for database creation",
+    )
+    parser.add_argument("action", help="Action to apply to the database", choices=["create"])
+    parser.add_argument(
+        "--database-url",
+        help="URL for the leaderboard database",
+        default="sqlite:///lobby_rankings.sqlite3",
+    )
     return parser.parse_args()
 
 
@@ -164,9 +171,9 @@ def main():
     """Entry point a console script."""
     args = parse_args()
     engine = create_engine(args.database_url)
-    if args.action == 'create':
+    if args.action == "create":
         Base.metadata.create_all(engine)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

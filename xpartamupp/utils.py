@@ -17,9 +17,8 @@
 """Collection of utility functions used by the XMPP-bots."""
 
 import tomllib
-
 from argparse import ArgumentParser, Namespace
-from typing import Sequence
+from collections.abc import Sequence
 
 
 class ArgumentParserWithConfigFile(ArgumentParser):
@@ -38,14 +37,17 @@ class ArgumentParserWithConfigFile(ArgumentParser):
     def __init__(self, *args, **kwargs):
         """Create a parser with an option for a config file."""
         super().__init__(*args, **kwargs)
-        self.add_argument("--config-file",
-                          help="Path to a TOML configuration file. Options in the configuration "
-                               "will be used as defaults for command line options and will be "
-                               "overwritten if the command line option is provided with a "
-                               "non-default value.")
+        self.add_argument(
+            "--config-file",
+            help="Path to a TOML configuration file. Options in the configuration "
+            "will be used as defaults for command line options and will be "
+            "overwritten if the command line option is provided with a "
+            "non-default value.",
+        )
 
-    def parse_args(self, args: Sequence[str] | None = None,
-                   namespace: Namespace | None = None) -> Namespace:
+    def parse_args(
+        self, args: Sequence[str] | None = None, namespace: Namespace | None = None
+    ) -> Namespace:
         """Parse arguments and use values from TOML as default."""
         parsed_args = super().parse_args(args, namespace)
 
@@ -57,8 +59,7 @@ class ArgumentParserWithConfigFile(ArgumentParser):
             with open(parsed_args.config_file, "rb") as r:
                 toml_data = tomllib.load(r)
         except FileNotFoundError:
-            self.error(
-                f"The given configuration file \"{parsed_args.config_file}\" doesn't exist.")
+            self.error(f'The given configuration file "{parsed_args.config_file}" doesn\'t exist.')
 
         delattr(parsed_args, "config_file")
 
@@ -73,8 +74,7 @@ class ArgumentParserWithConfigFile(ArgumentParser):
 
         for key, value in toml_data.items():
             if key not in default_args:
-                self.error(
-                    f"The configuration file contains an unrecognized option: {key}")
+                self.error(f"The configuration file contains an unrecognized option: {key}")
             if key in changed_args:
                 continue
             setattr(parsed_args, key, value)
