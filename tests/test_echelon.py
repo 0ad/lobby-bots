@@ -17,7 +17,6 @@
 """Tests for EcheLOn."""
 
 import sys
-
 from argparse import Namespace
 from unittest import TestCase
 from unittest.mock import Mock, call, patch
@@ -35,18 +34,18 @@ class TestLeaderboard(TestCase):
 
     def setUp(self):
         """Set up a leaderboard instance."""
-        db_url = 'sqlite://'
+        db_url = "sqlite://"
         engine = create_engine(db_url)
         Base.metadata.create_all(engine)
-        with patch('xpartamupp.echelon.create_engine') as create_engine_mock:
+        with patch("xpartamupp.echelon.create_engine") as create_engine_mock:
             create_engine_mock.return_value = engine
             self.leaderboard = Leaderboard(db_url)
 
     def test_create_player(self):
         """Test creating a new player."""
-        player = self.leaderboard.get_or_create_player(JID('john@localhost/0ad'))
+        player = self.leaderboard.get_or_create_player(JID("john@localhost/0ad"))
         self.assertEqual(player.id, 1)
-        self.assertEqual(player.jid, 'john@localhost/0ad')
+        self.assertEqual(player.jid, "john@localhost/0ad")
         self.assertEqual(player.rating, -1)
         self.assertEqual(player.highest_rating, None)
         self.assertEqual(player.games, [])
@@ -60,8 +59,8 @@ class TestLeaderboard(TestCase):
         lowercase and once in uppercase should result in the same player
         object, as player names are supposed to be case-insensitive.
         """
-        player1 = self.leaderboard.get_or_create_player(JID('john@localhost/0ad'))
-        player2 = self.leaderboard.get_or_create_player(JID('JOHN@localhost/0ad'))
+        player1 = self.leaderboard.get_or_create_player(JID("john@localhost/0ad"))
+        player2 = self.leaderboard.get_or_create_player(JID("JOHN@localhost/0ad"))
         self.assertEqual(player1, player2)
 
     def test_create_player_with_special_chars(self):
@@ -71,26 +70,35 @@ class TestLeaderboard(TestCase):
         special characters result in different items in the leaderboard
         database.
         """
-        player = self.leaderboard.get_or_create_player(JID('john@localhost/0ad'))
+        player = self.leaderboard.get_or_create_player(JID("john@localhost/0ad"))
         self.assertEqual(player.id, 1)
-        player = self.leaderboard.get_or_create_player(JID('joh.@localhost/0ad'))
+        player = self.leaderboard.get_or_create_player(JID("joh.@localhost/0ad"))
         self.assertEqual(player.id, 2)
-        player = self.leaderboard.get_or_create_player(JID('joh_@localhost/0ad'))
+        player = self.leaderboard.get_or_create_player(JID("joh_@localhost/0ad"))
         self.assertEqual(player.id, 3)
-        player = self.leaderboard.get_or_create_player(JID('joh-@localhost/0ad'))
+        player = self.leaderboard.get_or_create_player(JID("joh-@localhost/0ad"))
         self.assertEqual(player.id, 4)
 
     def test_get_profile_no_player(self):
         """Test profile retrieval for not existing player."""
-        profile = self.leaderboard.get_profile(JID('john@localhost/0ad'))
+        profile = self.leaderboard.get_profile(JID("john@localhost/0ad"))
         self.assertEqual(profile, {})
 
     def test_get_profile_player_without_games(self):
         """Test profile retrieval for existing player."""
-        self.leaderboard.get_or_create_player(JID('john@localhost/0ad'))
-        profile = self.leaderboard.get_profile(JID('john@localhost/0ad'))
-        self.assertDictEqual(profile, {'rating': '-', 'highestRating': '-', 'losses': 0,
-                                       'rank': '-', 'totalGamesPlayed': 0, 'wins': 0})
+        self.leaderboard.get_or_create_player(JID("john@localhost/0ad"))
+        profile = self.leaderboard.get_profile(JID("john@localhost/0ad"))
+        self.assertDictEqual(
+            profile,
+            {
+                "rating": "-",
+                "highestRating": "-",
+                "losses": 0,
+                "rank": "-",
+                "totalGamesPlayed": 0,
+                "wins": 0,
+            },
+        )
 
     def test_get_profile_ambiguous_player(self):
         """Test profile retrieval if similar player exists.
@@ -98,12 +106,12 @@ class TestLeaderboard(TestCase):
         This is a regression test to ensure special characters in player
         names get handled properly when retrieving player profiles.
         """
-        self.leaderboard.get_or_create_player(JID('john@localhost/0ad'))
-        profile = self.leaderboard.get_profile(JID('joh.@localhost/0ad'))
+        self.leaderboard.get_or_create_player(JID("john@localhost/0ad"))
+        profile = self.leaderboard.get_profile(JID("joh.@localhost/0ad"))
         self.assertEqual(profile, {})
-        profile = self.leaderboard.get_profile(JID('joh_@localhost/0ad'))
+        profile = self.leaderboard.get_profile(JID("joh_@localhost/0ad"))
         self.assertEqual(profile, {})
-        profile = self.leaderboard.get_profile(JID('joh-@localhost/0ad'))
+        profile = self.leaderboard.get_profile(JID("joh-@localhost/0ad"))
         self.assertEqual(profile, {})
 
     def test_get_profile_with_casing(self):
@@ -112,72 +120,187 @@ class TestLeaderboard(TestCase):
         Test that the same profile gets returned, no matter whether the
         player name is provided as lower case or upper case.
         """
-        self.leaderboard.get_or_create_player(JID('john@localhost/0ad'))
-        profile1 = self.leaderboard.get_profile(JID('john@localhost/0ad'))
-        profile2 = self.leaderboard.get_profile(JID('JOHN@localhost/0ad'))
+        self.leaderboard.get_or_create_player(JID("john@localhost/0ad"))
+        profile1 = self.leaderboard.get_profile(JID("john@localhost/0ad"))
+        profile2 = self.leaderboard.get_profile(JID("JOHN@localhost/0ad"))
         self.assertEqual(profile1, profile2)
 
 
 class TestArgumentParsing(TestCase):
     """Test handling of parsing command line parameters."""
 
-    @parameterized.expand([
-        ([],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', xserver=None,
-                   no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
-                   verbosity=0, database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['-v'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', xserver=None,
-                   no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
-                   verbosity=1, database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['-vv'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', xserver=None,
-                   no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
-                   verbosity=2, database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['-vvv'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', xserver=None,
-                   no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
-                   verbosity=3, database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['--verbosity', '3'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', xserver=None,
-                   no_verify=False, nickname='RatingsBot', password='XXXXXX', room='arena',
-                   verbosity=3, database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['-m', 'lobby.domain.tld'],
-         Namespace(domain='lobby.domain.tld', login='EcheLOn', verbosity=0, nickname='RatingsBot',
-                   xserver=None, no_verify=False, password='XXXXXX', room='arena',
-                   database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['--domain=lobby.domain.tld'],
-         Namespace(domain='lobby.domain.tld', login='EcheLOn', verbosity=0, nickname='RatingsBot',
-                   xserver=None, no_verify=False, password='XXXXXX', room='arena',
-                   database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['-m', 'lobby.domain.tld', '-l', 'bot', '-p', '123456', '-n', 'Bot', '-r', 'arena123',
-          '-v'],
-         Namespace(domain='lobby.domain.tld', login='bot', verbosity=1, nickname='Bot',
-                   xserver=None, no_verify=False, password='123456', room='arena123',
-                   database_url='sqlite:///lobby_rankings.sqlite3')),
-        (['--domain=lobby.domain.tld', '--login=bot', '--password=123456', '--nickname=Bot',
-          '--room=arena123', '--database-url=sqlite:////tmp/db.sqlite3'],
-         Namespace(domain='lobby.domain.tld', login='bot', verbosity=0, nickname='Bot',
-                   xserver=None, no_verify=False, password='123456', room='arena123',
-                   database_url='sqlite:////tmp/db.sqlite3')),
-        (['--no-verify'],
-         Namespace(domain='lobby.wildfiregames.com', login='EcheLOn', verbosity=0, xserver=None,
-                   no_verify=True, nickname='RatingsBot', password='XXXXXX', room='arena',
-                   database_url='sqlite:///lobby_rankings.sqlite3')),
-    ])
+    @parameterized.expand(
+        [
+            (
+                [],
+                Namespace(
+                    domain="lobby.wildfiregames.com",
+                    login="EcheLOn",
+                    xserver=None,
+                    no_verify=False,
+                    nickname="RatingsBot",
+                    password="XXXXXX",
+                    room="arena",
+                    verbosity=0,
+                    database_url="sqlite:///lobby_rankings.sqlite3",
+                ),
+            ),
+            (
+                ["-v"],
+                Namespace(
+                    domain="lobby.wildfiregames.com",
+                    login="EcheLOn",
+                    xserver=None,
+                    no_verify=False,
+                    nickname="RatingsBot",
+                    password="XXXXXX",
+                    room="arena",
+                    verbosity=1,
+                    database_url="sqlite:///lobby_rankings.sqlite3",
+                ),
+            ),
+            (
+                ["-vv"],
+                Namespace(
+                    domain="lobby.wildfiregames.com",
+                    login="EcheLOn",
+                    xserver=None,
+                    no_verify=False,
+                    nickname="RatingsBot",
+                    password="XXXXXX",
+                    room="arena",
+                    verbosity=2,
+                    database_url="sqlite:///lobby_rankings.sqlite3",
+                ),
+            ),
+            (
+                ["-vvv"],
+                Namespace(
+                    domain="lobby.wildfiregames.com",
+                    login="EcheLOn",
+                    xserver=None,
+                    no_verify=False,
+                    nickname="RatingsBot",
+                    password="XXXXXX",
+                    room="arena",
+                    verbosity=3,
+                    database_url="sqlite:///lobby_rankings.sqlite3",
+                ),
+            ),
+            (
+                ["--verbosity", "3"],
+                Namespace(
+                    domain="lobby.wildfiregames.com",
+                    login="EcheLOn",
+                    xserver=None,
+                    no_verify=False,
+                    nickname="RatingsBot",
+                    password="XXXXXX",
+                    room="arena",
+                    verbosity=3,
+                    database_url="sqlite:///lobby_rankings.sqlite3",
+                ),
+            ),
+            (
+                ["-m", "lobby.domain.tld"],
+                Namespace(
+                    domain="lobby.domain.tld",
+                    login="EcheLOn",
+                    verbosity=0,
+                    nickname="RatingsBot",
+                    xserver=None,
+                    no_verify=False,
+                    password="XXXXXX",
+                    room="arena",
+                    database_url="sqlite:///lobby_rankings.sqlite3",
+                ),
+            ),
+            (
+                ["--domain=lobby.domain.tld"],
+                Namespace(
+                    domain="lobby.domain.tld",
+                    login="EcheLOn",
+                    verbosity=0,
+                    nickname="RatingsBot",
+                    xserver=None,
+                    no_verify=False,
+                    password="XXXXXX",
+                    room="arena",
+                    database_url="sqlite:///lobby_rankings.sqlite3",
+                ),
+            ),
+            (
+                [
+                    "-m",
+                    "lobby.domain.tld",
+                    "-l",
+                    "bot",
+                    "-p",
+                    "123456",
+                    "-n",
+                    "Bot",
+                    "-r",
+                    "arena123",
+                    "-v",
+                ],
+                Namespace(
+                    domain="lobby.domain.tld",
+                    login="bot",
+                    verbosity=1,
+                    nickname="Bot",
+                    xserver=None,
+                    no_verify=False,
+                    password="123456",
+                    room="arena123",
+                    database_url="sqlite:///lobby_rankings.sqlite3",
+                ),
+            ),
+            (
+                [
+                    "--domain=lobby.domain.tld",
+                    "--login=bot",
+                    "--password=123456",
+                    "--nickname=Bot",
+                    "--room=arena123",
+                    "--database-url=sqlite:////tmp/db.sqlite3",
+                ],
+                Namespace(
+                    domain="lobby.domain.tld",
+                    login="bot",
+                    verbosity=0,
+                    nickname="Bot",
+                    xserver=None,
+                    no_verify=False,
+                    password="123456",
+                    room="arena123",
+                    database_url="sqlite:////tmp/db.sqlite3",
+                ),
+            ),
+            (
+                ["--no-verify"],
+                Namespace(
+                    domain="lobby.wildfiregames.com",
+                    login="EcheLOn",
+                    verbosity=0,
+                    xserver=None,
+                    no_verify=True,
+                    nickname="RatingsBot",
+                    password="XXXXXX",
+                    room="arena",
+                    database_url="sqlite:///lobby_rankings.sqlite3",
+                ),
+            ),
+        ]
+    )
     def test_valid(self, cmd_args, expected_args):
         """Test valid parameter combinations."""
-        with patch.object(sys, 'argv', ['echelon'] + cmd_args):
+        with patch.object(sys, "argv", ["echelon", *cmd_args]):
             self.assertEqual(expected_args, parse_args())
 
-    @parameterized.expand([
-        (['-f'],),
-        (['--foo'],),
-        (['-v', '--verbosity', '1'],)
-    ])
+    @parameterized.expand([(["-f"],), (["--foo"],), (["-v", "--verbosity", "1"],)])
     def test_invalid(self, cmd_args):
         """Test invalid parameter combinations."""
-        with patch.object(sys, 'argv', ['echelon'] + cmd_args), self.assertRaises(SystemExit):
+        with patch.object(sys, "argv", ["echelon", *cmd_args]), self.assertRaises(SystemExit):
             parse_args()
 
 
@@ -186,22 +309,37 @@ class TestMain(TestCase):
 
     def test_success(self):
         """Test successful execution."""
-        with patch('xpartamupp.echelon.parse_args') as args_mock, \
-                patch('xpartamupp.echelon.Leaderboard') as leaderboard_mock, \
-                patch('xpartamupp.echelon.EcheLOn') as xmpp_mock, \
-                patch('xpartamupp.echelon.asyncio') as asyncio_mock:
-            args_mock.return_value = Mock(log_level=30, login='EcheLOn',
-                                          domain='lobby.wildfiregames.com', password='XXXXXX',
-                                          room='arena', nickname='RatingsBot',
-                                          database_url='sqlite:///lobby_rankings.sqlite3',
-                                          xserver=None, no_verify=False, verbosity=0)
+        with (
+            patch("xpartamupp.echelon.parse_args") as args_mock,
+            patch("xpartamupp.echelon.Leaderboard") as leaderboard_mock,
+            patch("xpartamupp.echelon.EcheLOn") as xmpp_mock,
+            patch("xpartamupp.echelon.asyncio") as asyncio_mock,
+        ):
+            args_mock.return_value = Mock(
+                log_level=30,
+                login="EcheLOn",
+                domain="lobby.wildfiregames.com",
+                password="XXXXXX",
+                room="arena",
+                nickname="RatingsBot",
+                database_url="sqlite:///lobby_rankings.sqlite3",
+                xserver=None,
+                no_verify=False,
+                verbosity=0,
+            )
             main()
             args_mock.assert_called_once_with()
-            leaderboard_mock.assert_called_once_with('sqlite:///lobby_rankings.sqlite3')
-            xmpp_mock().register_plugin.assert_has_calls([call('xep_0004'), call('xep_0030'),
-                                                          call('xep_0045'), call('xep_0060'),
-                                                          call('xep_0199', {'keepalive': True})],
-                                                         any_order=True)
+            leaderboard_mock.assert_called_once_with("sqlite:///lobby_rankings.sqlite3")
+            xmpp_mock().register_plugin.assert_has_calls(
+                [
+                    call("xep_0004"),
+                    call("xep_0030"),
+                    call("xep_0045"),
+                    call("xep_0060"),
+                    call("xep_0199", {"keepalive": True}),
+                ],
+                any_order=True,
+            )
             xmpp_mock().connect.assert_called_once_with(None)
             asyncio_mock.get_event_loop.assert_called_once_with()
             asyncio_mock.get_event_loop.return_value.run_forever_assert_called_once_with()

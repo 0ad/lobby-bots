@@ -41,8 +41,10 @@ class TestArgumentParserWithConfigFile(TestCase):
             stderr = StringIO()
             with self.assertRaises(SystemExit), redirect_stderr(stderr):
                 parser.parse_args(args=args)
-            self.assertIn(f"The given configuration file \"{config_file_name}\" "
-                          "doesn't exist.", stderr.getvalue())
+            self.assertIn(
+                f'The given configuration file "{config_file_name}" ' "doesn't exist.",
+                stderr.getvalue(),
+            )
 
         file_open_mock.assert_called_once_with(config_file_name, "rb")
 
@@ -75,8 +77,9 @@ class TestArgumentParserWithConfigFile(TestCase):
             stderr = StringIO()
             with self.assertRaises(SystemExit), redirect_stderr(stderr):
                 parser.parse_args(args=args)
-            self.assertIn("The configuration file contains an unrecognized option: foo",
-                          stderr.getvalue())
+            self.assertIn(
+                "The configuration file contains an unrecognized option: foo", stderr.getvalue()
+            )
 
     def test_config_file_with_cmdl_option(self):
         """Test overwriting an option in config."""
@@ -95,6 +98,7 @@ class TestArgumentParserWithConfigFile(TestCase):
 
     def test_namespace(self):
         """Test functionality of the namespace parameter."""
+
         class Namespace:
             verbosity = 3
 
@@ -112,6 +116,7 @@ class TestArgumentParserWithConfigFile(TestCase):
 
     def test_config_file_and_namespace(self):
         """Test combination of config file and namespace parameter."""
+
         class Namespace:
             verbosity = 3
 

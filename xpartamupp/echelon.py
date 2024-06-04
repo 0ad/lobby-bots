@@ -22,11 +22,10 @@ import asyncio
 import difflib
 import logging
 import ssl
-
 from argparse import ArgumentDefaultsHelpFormatter
 from asyncio import Future
 from collections import deque
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from cachetools import TTLCache
 from slixmpp import ClientXMPP
@@ -43,6 +42,7 @@ from xpartamupp.elo import get_rating_adjustment
 from xpartamupp.lobby_ranking import Game, Player, PlayerInfo
 from xpartamupp.stanzas import BoardListXmppPlugin, GameReportXmppPlugin, ProfileXmppPlugin
 from xpartamupp.utils import ArgumentParserWithConfigFile
+
 
 # Rating that new players should be inserted into the
 # database with, before they've played any games.
@@ -116,15 +116,27 @@ class Leaderboard:
 
         if player.rating == -1:
             logger.debug("Player %s hasn't played any rated games yet", jid)
-            return {'rating': '-', 'rank': '-', 'highestRating': '-',
-                    'totalGamesPlayed': games_played, 'wins': wins, 'losses': games_played - wins}
+            return {
+                "rating": "-",
+                "rank": "-",
+                "highestRating": "-",
+                "totalGamesPlayed": games_played,
+                "wins": wins,
+                "losses": games_played - wins,
+            }
 
         rank = self.db.query(Player).filter(Player.rating >= player.rating).count()
 
-        return {'rating': player.rating, 'rank': rank, 'highestRating': player.highest_rating,
-                'totalGamesPlayed': games_played, 'wins': wins, 'losses': games_played - wins}
+        return {
+            "rating": player.rating,
+            "rank": rank,
+            "highestRating": player.highest_rating,
+            "totalGamesPlayed": games_played,
+            "wins": wins,
+            "losses": games_played - wins,
+        }
 
-    def _add_game(self, game_report):  # pylint: disable=too-many-locals
+    def _add_game(self, game_report):
         """Add a game to the database.
 
         Add a game to the database and update the data on a
@@ -140,49 +152,100 @@ class Leaderboard:
         """
         # Discard any games still in progress. We shouldn't get
         # reports from those games anyway.
-        if 'active' in dict.values(game_report['playerStates']):
+        if "active" in dict.values(game_report["playerStates"]):
             logger.warning("Received a game report for an unfinished game")
             return None
 
-        players = self.db.query(Player).filter(func.lower(Player.jid).in_(
-            dict.keys(game_report['playerStates'])))
+        players = self.db.query(Player).filter(
+            func.lower(Player.jid).in_(dict.keys(game_report["playerStates"]))
+        )
 
-        winning_jid = [jid for jid, state in game_report['playerStates'].items()
-                       if state == 'won'][0]
+        winning_jid = next(
+            jid for jid, state in game_report["playerStates"].items() if state == "won"
+        )
 
-        # single_stats = {'timeElapsed', 'mapName', 'teamsLocked', 'matchID'}
-        total_score_stats = {'economyScore', 'militaryScore', 'totalScore'}
-        resource_stats = {'foodGathered', 'foodUsed', 'woodGathered', 'woodUsed', 'stoneGathered',
-                          'stoneUsed', 'metalGathered', 'metalUsed', 'vegetarianFoodGathered',
-                          'treasuresCollected', 'lootCollected', 'tributesSent',
-                          'tributesReceived'}
-        units_stats = {'totalUnitsTrained', 'totalUnitsLost', 'enemytotalUnitsKilled',
-                       'infantryUnitsTrained', 'infantryUnitsLost', 'enemyInfantryUnitsKilled',
-                       'workerUnitsTrained', 'workerUnitsLost', 'enemyWorkerUnitsKilled',
-                       'femaleCitizenUnitsTrained', 'femaleCitizenUnitsLost',
-                       'enemyFemaleCitizenUnitsKilled', 'cavalryUnitsTrained', 'cavalryUnitsLost',
-                       'enemyCavalryUnitsKilled', 'championUnitsTrained', 'championUnitsLost',
-                       'enemyChampionUnitsKilled', 'heroUnitsTrained', 'heroUnitsLost',
-                       'enemyHeroUnitsKilled', 'shipUnitsTrained', 'shipUnitsLost',
-                       'enemyShipUnitsKilled', 'traderUnitsTrained', 'traderUnitsLost',
-                       'enemyTraderUnitsKilled'}
-        buildings_stats = {'totalBuildingsConstructed', 'totalBuildingsLost',
-                           'enemytotalBuildingsDestroyed', 'civCentreBuildingsConstructed',
-                           'civCentreBuildingsLost', 'enemyCivCentreBuildingsDestroyed',
-                           'houseBuildingsConstructed', 'houseBuildingsLost',
-                           'enemyHouseBuildingsDestroyed', 'economicBuildingsConstructed',
-                           'economicBuildingsLost', 'enemyEconomicBuildingsDestroyed',
-                           'outpostBuildingsConstructed', 'outpostBuildingsLost',
-                           'enemyOutpostBuildingsDestroyed', 'militaryBuildingsConstructed',
-                           'militaryBuildingsLost', 'enemyMilitaryBuildingsDestroyed',
-                           'fortressBuildingsConstructed', 'fortressBuildingsLost',
-                           'enemyFortressBuildingsDestroyed', 'wonderBuildingsConstructed',
-                           'wonderBuildingsLost', 'enemyWonderBuildingsDestroyed'}
-        market_stats = {'woodBought', 'foodBought', 'stoneBought', 'metalBought', 'tradeIncome'}
-        misc_stats = {'civs', 'teams', 'percentMapExplored'}
+        total_score_stats = {"economyScore", "militaryScore", "totalScore"}
+        resource_stats = {
+            "foodGathered",
+            "foodUsed",
+            "woodGathered",
+            "woodUsed",
+            "stoneGathered",
+            "stoneUsed",
+            "metalGathered",
+            "metalUsed",
+            "vegetarianFoodGathered",
+            "treasuresCollected",
+            "lootCollected",
+            "tributesSent",
+            "tributesReceived",
+        }
+        units_stats = {
+            "totalUnitsTrained",
+            "totalUnitsLost",
+            "enemytotalUnitsKilled",
+            "infantryUnitsTrained",
+            "infantryUnitsLost",
+            "enemyInfantryUnitsKilled",
+            "workerUnitsTrained",
+            "workerUnitsLost",
+            "enemyWorkerUnitsKilled",
+            "femaleCitizenUnitsTrained",
+            "femaleCitizenUnitsLost",
+            "enemyFemaleCitizenUnitsKilled",
+            "cavalryUnitsTrained",
+            "cavalryUnitsLost",
+            "enemyCavalryUnitsKilled",
+            "championUnitsTrained",
+            "championUnitsLost",
+            "enemyChampionUnitsKilled",
+            "heroUnitsTrained",
+            "heroUnitsLost",
+            "enemyHeroUnitsKilled",
+            "shipUnitsTrained",
+            "shipUnitsLost",
+            "enemyShipUnitsKilled",
+            "traderUnitsTrained",
+            "traderUnitsLost",
+            "enemyTraderUnitsKilled",
+        }
+        buildings_stats = {
+            "totalBuildingsConstructed",
+            "totalBuildingsLost",
+            "enemytotalBuildingsDestroyed",
+            "civCentreBuildingsConstructed",
+            "civCentreBuildingsLost",
+            "enemyCivCentreBuildingsDestroyed",
+            "houseBuildingsConstructed",
+            "houseBuildingsLost",
+            "enemyHouseBuildingsDestroyed",
+            "economicBuildingsConstructed",
+            "economicBuildingsLost",
+            "enemyEconomicBuildingsDestroyed",
+            "outpostBuildingsConstructed",
+            "outpostBuildingsLost",
+            "enemyOutpostBuildingsDestroyed",
+            "militaryBuildingsConstructed",
+            "militaryBuildingsLost",
+            "enemyMilitaryBuildingsDestroyed",
+            "fortressBuildingsConstructed",
+            "fortressBuildingsLost",
+            "enemyFortressBuildingsDestroyed",
+            "wonderBuildingsConstructed",
+            "wonderBuildingsLost",
+            "enemyWonderBuildingsDestroyed",
+        }
+        market_stats = {"woodBought", "foodBought", "stoneBought", "metalBought", "tradeIncome"}
+        misc_stats = {"civs", "teams", "percentMapExplored"}
 
-        stats = total_score_stats | resource_stats | units_stats | buildings_stats | market_stats \
+        stats = (
+            total_score_stats
+            | resource_stats
+            | units_stats
+            | buildings_stats
+            | market_stats
             | misc_stats
+        )
 
         player_infos = []
         for player in players:
@@ -192,11 +255,18 @@ class Leaderboard:
                 setattr(player_info, report_name, game_report[report_name][player_jid])
             player_infos.append(player_info)
 
-        game = Game(map=game_report['mapName'], duration=int(game_report['timeElapsed']),
-                    teamsLocked=bool(game_report['teamsLocked']), matchID=game_report['matchID'])
+        game = Game(
+            map=game_report["mapName"],
+            duration=int(game_report["timeElapsed"]),
+            teamsLocked=bool(game_report["teamsLocked"]),
+            matchID=game_report["matchID"],
+        )
         game.player_info.extend(player_infos)
-        game.winner = self.db.query(Player).filter(
-            func.lower(Player.jid) == str(winning_jid).lower()).first()
+        game.winner = (
+            self.db.query(Player)
+            .filter(func.lower(Player.jid) == str(winning_jid).lower())
+            .first()
+        )
         self.db.add(game)
         self.db.commit()
         return game
@@ -214,10 +284,11 @@ class Leaderboard:
             True if the game should be rated, false otherwise.
 
         """
-        winning_jids = [jid for jid, state in game_report['playerStates'].items()
-                        if state == 'won']
+        winning_jids = [
+            jid for jid, state in game_report["playerStates"].items() if state == "won"
+        ]
         # We only support 1v1s right now.
-        if len(winning_jids) > 1 or len(dict.keys(game_report['playerStates'])) != 2:
+        if len(winning_jids) > 1 or len(dict.keys(game_report["playerStates"])) != 2:
             return False
         return True
 
@@ -245,29 +316,37 @@ class Leaderboard:
             player2.rating = LEADERBOARD_DEFAULT_RATING
 
         try:
-            rating_adjustment1 = int(get_rating_adjustment(player1.rating, player2.rating,
-                                                           len(player1.games), len(player2.games),
-                                                           result))
-            rating_adjustment2 = int(get_rating_adjustment(player2.rating, player1.rating,
-                                                           len(player2.games), len(player1.games),
-                                                           result * -1))
+            rating_adjustment1 = int(
+                get_rating_adjustment(
+                    player1.rating, player2.rating, len(player1.games), len(player2.games), result
+                )
+            )
+            rating_adjustment2 = int(
+                get_rating_adjustment(
+                    player2.rating,
+                    player1.rating,
+                    len(player2.games),
+                    len(player1.games),
+                    result * -1,
+                )
+            )
         except ValueError:
             rating_adjustment1 = 0
             rating_adjustment2 = 0
 
         if result == 1:
-            result_qualitative = 'won'
+            result_qualitative = "won"
         elif result == 0:
-            result_qualitative = 'drew'
+            result_qualitative = "drew"
         else:
-            result_qualitative = 'lost'
+            result_qualitative = "lost"
         name1 = JID(player1.jid).local
         name2 = JID(player2.jid).local
-        self.rating_messages.append("A rated game has ended. %s %s against %s. Rating "
-                                    "Adjustment: %s (%s -> %s) and %s (%s -> %s)." %
-                                    (name1, result_qualitative, name2, name1, player1.rating,
-                                     player1.rating + rating_adjustment1, name2, player2.rating,
-                                     player2.rating + rating_adjustment2))
+        self.rating_messages.append(
+            f"A rated game has ended. {name1} {result_qualitative} against {name2}. Rating "
+            f"Adjustment: {name1} ({player1.rating} -> {player1.rating + rating_adjustment1}) "
+            f"and {name2} ({player2.rating} -> {player2.rating + rating_adjustment2})."
+        )
         player1.rating += rating_adjustment1
         player2.rating += rating_adjustment2
         if not player1.highest_rating:
@@ -282,7 +361,7 @@ class Leaderboard:
         """Get messages announcing rated games.
 
         Returns:
-            list with the a messages about rated games
+            list with the messages about rated games
 
         """
         return self.rating_messages
@@ -315,11 +394,14 @@ class Leaderboard:
 
         """
         ratings = {}
-        players = self.db.query(Player).filter(Player.rating != -1) \
-            .order_by(Player.rating.desc()).limit(limit)
+        players = (
+            self.db.query(Player)
+            .filter(Player.rating != -1)
+            .order_by(Player.rating.desc())
+            .limit(limit)
+        )
         for player in players:
-            ratings[player.jid] = {'name': JID(player.jid).local,
-                                   'rating': player.rating}
+            ratings[player.jid] = {"name": JID(player.jid).local, "rating": player.rating}
         return ratings
 
     def get_rating_list(self, nicks):
@@ -341,10 +423,10 @@ class Leaderboard:
             player_filter = func.lower(Player.jid).in_([str(jid).lower() for jid in list(nicks)])
             players = self.db.query(Player.jid, Player.rating).filter(player_filter)
             for player in players:
-                rating = str(player.rating) if player.rating != -1 else ''
+                rating = str(player.rating) if player.rating != -1 else ""
                 for jid in list(nicks):
                     if jid == JID(player.jid):
-                        ratings[nicks[str(jid)]] = {'name': nicks[jid], 'rating': rating}
+                        ratings[nicks[str(jid)]] = {"name": nicks[jid], "rating": rating}
                         break
         return ratings
 
@@ -363,57 +445,65 @@ class ReportManager:
 
         """
         self.leaderboard = leaderboard
-        self.interim_report_tracker = TTLCache(maxsize=2 ** 12, ttl=60 * 60 * 1)
+        self.interim_report_tracker = TTLCache(maxsize=2**12, ttl=60 * 60 * 1)
 
     def add_report(self, jid, raw_game_report):
-        """Add a game to the interface between a raw report and the leaderboard database.
+        """Add a report for a game.
 
         Arguments:
             jid (JID): JID of the player who submitted the report
             raw_game_report (dict): Game report generated by 0ad
 
         """
-        player_index = int(raw_game_report['playerID']) - 1
-        del raw_game_report['playerID']
-        match_id = raw_game_report['matchID']
+        player_index = int(raw_game_report["playerID"]) - 1
+        del raw_game_report["playerID"]
+        match_id = raw_game_report["matchID"]
         if match_id not in self.interim_report_tracker:
             self.interim_report_tracker[match_id] = {
-                'report': raw_game_report,
-                'jids': {player_index: str(JID(jid).bare + "/0ad")}
+                "report": raw_game_report,
+                "jids": {player_index: str(JID(jid).bare + "/0ad")},
             }
         else:
             current_match = self.interim_report_tracker[match_id]
-            if raw_game_report != current_match['report']:
-                report_diff = self._get_report_diff(raw_game_report, current_match['report'])
-                logger.warning("Retrieved reports for match %s differ:\n %s", match_id,
-                               report_diff)
+            if raw_game_report != current_match["report"]:
+                report_diff = self._get_report_diff(raw_game_report, current_match["report"])
+                logger.warning(
+                    "Retrieved reports for match %s differ:\n %s", match_id, report_diff
+                )
                 return
 
-            player_jids = current_match['jids']
+            player_jids = current_match["jids"]
             if player_index in player_jids:
                 if player_jids[player_index] == jid:
-                    logger.warning("Received a report for match %s from player %s twice.",
-                                   match_id, jid)
+                    logger.warning(
+                        "Received a report for match %s from player %s twice.", match_id, jid
+                    )
                 else:
-                    logger.warning("Retrieved a report for match %s for the same player twice, "
-                                   "but from two different XMPP accounts: %s vs. %s", match_id,
-                                   player_jids[player_index], jid)
+                    logger.warning(
+                        "Retrieved a report for match %s for the same player twice, "
+                        "but from two different XMPP accounts: %s vs. %s",
+                        match_id,
+                        player_jids[player_index],
+                        jid,
+                    )
                 return
-            else:
-                player_jids[player_index] = str(JID(jid).bare + "/0ad")
+
+            player_jids[player_index] = str(JID(jid).bare + "/0ad")
 
             num_players = self._get_num_players(raw_game_report)
             num_retrieved_reports = len(player_jids)
             if num_retrieved_reports == num_players:
                 try:
-                    self.leaderboard.add_and_rate_game(self._expand_report(
-                        current_match))
+                    self.leaderboard.add_and_rate_game(self._expand_report(current_match))
                 except Exception:
                     logger.exception("Failed to add and rate a game.")
                 del self.interim_report_tracker[match_id]
             elif num_retrieved_reports < num_players:
-                logger.warning("Haven't received all reports for the game yet. %i/%i",
-                               num_retrieved_reports, num_players)
+                logger.warning(
+                    "Haven't received all reports for the game yet. %i/%i",
+                    num_retrieved_reports,
+                    num_players,
+                )
             elif num_retrieved_reports > num_players:
                 logger.warning("Retrieved more reports than players. This shouldn't happen.")
 
@@ -430,13 +520,13 @@ class ReportManager:
         Returns a processed gameReport of type dict.
         """
         processed_game_report = {}
-        for key, value in game_report['report'].items():
-            if ',' not in value:
+        for key, value in game_report["report"].items():
+            if "," not in value:
                 processed_game_report[key] = value
             else:
                 stat_to_jid = {}
-                for i, part in enumerate(game_report['report'][key].split(",")[:-1]):
-                    stat_to_jid[game_report['jids'][i]] = part
+                for i, part in enumerate(game_report["report"][key].split(",")[:-1]):
+                    stat_to_jid[game_report["jids"][i]] = part
                 processed_game_report[key] = stat_to_jid
         return processed_game_report
 
@@ -457,9 +547,9 @@ class ReportManager:
             ValueError if the number of players couldn't be determined
 
         """
-        if 'playerStates' in raw_game_report and ',' in raw_game_report['playerStates']:
-            return len(list(filter(None, raw_game_report['playerStates'].split(","))))
-        raise ValueError()
+        if "playerStates" in raw_game_report and "," in raw_game_report["playerStates"]:
+            return len(list(filter(None, raw_game_report["playerStates"].split(","))))
+        raise ValueError
 
     @staticmethod
     def _get_report_diff(report1, report2):
@@ -474,9 +564,9 @@ class ReportManager:
                 between the two reports
 
         """
-        report1_list = ['{ %s: %s }' % (key, value) for key, value in report1.items()]
-        report2_list = ['{ %s: %s }' % (key, value) for key, value in report2.items()]
-        return '\n'.join(difflib.ndiff(report1_list, report2_list))
+        report1_list = [f"{{ {key}: {value} }}" for key, value in report1.items()]
+        report2_list = [f"{{ {key}: {value} }}" for key, value in report2.items()]
+        return "\n".join(difflib.ndiff(report1_list, report2_list))
 
 
 class EcheLOn(ClientXMPP):
@@ -520,34 +610,41 @@ class EcheLOn(ClientXMPP):
         register_stanza_plugin(Iq, GameReportXmppPlugin)
         register_stanza_plugin(Iq, ProfileXmppPlugin)
 
-        self.register_handler(Callback('Iq Boardlist', StanzaPath('iq@type=get/boardlist'),
-                              self._iq_board_list_handler))
-        self.register_handler(Callback('Iq GameReport', StanzaPath('iq@type=set/gamereport'),
-                              self._iq_game_report_handler))
-        self.register_handler(Callback('Iq Profile', StanzaPath('iq@type=get/profile'),
-                              self._iq_profile_handler))
+        self.register_handler(
+            Callback(
+                "Iq Boardlist", StanzaPath("iq@type=get/boardlist"), self._iq_board_list_handler
+            )
+        )
+        self.register_handler(
+            Callback(
+                "Iq GameReport", StanzaPath("iq@type=set/gamereport"), self._iq_game_report_handler
+            )
+        )
+        self.register_handler(
+            Callback("Iq Profile", StanzaPath("iq@type=get/profile"), self._iq_profile_handler)
+        )
 
-        self.add_event_handler('session_start', self._session_start)
-        self.add_event_handler('muc::%s::got_online' % self.room, self._muc_online)
-        self.add_event_handler('muc::%s::got_offline' % self.room, self._muc_offline)
-        self.add_event_handler('groupchat_message', self._muc_message)
-        self.add_event_handler('failed_all_auth', self._shutdown)
-        self.add_event_handler('disconnected', self._reconnect)
+        self.add_event_handler("session_start", self._session_start)
+        self.add_event_handler(f"muc::{self.room}::got_online", self._muc_online)
+        self.add_event_handler(f"muc::{self.room}::got_offline", self._muc_offline)
+        self.add_event_handler("groupchat_message", self._muc_message)
+        self.add_event_handler("failed_all_auth", self._shutdown)
+        self.add_event_handler("disconnected", self._reconnect)
 
-    async def _session_start(self, event):  # pylint: disable=unused-argument
+    async def _session_start(self, _event):
         """Join MUC channel and announce presence.
 
         Arguments:
-            event (dict): empty dummy dict
+            _event (dict): empty dummy dict
 
         """
         self._connect_loop_wait_reconnect = 0
-        await self.plugin['xep_0045'].join_muc_wait(self.room, self.nick)
+        await self.plugin["xep_0045"].join_muc_wait(self.room, self.nick)
         self.send_presence()
         self.get_roster()
         logger.info("EcheLOn started")
 
-    async def _shutdown(self, event):  # pylint: disable=unused-argument
+    async def _shutdown(self, _event):
         """Shut down EcheLOn.
 
         This is used for aborting connection tries in case the
@@ -555,14 +652,14 @@ class EcheLOn(ClientXMPP):
         won't succeed in this case.
 
         Arguments:
-            event (dict): empty dummy dict
+            _event (dict): empty dummy dict
 
         """
         logger.error("Can't log in. Aborting reconnects.")
         self.abort()
         self.shutdown.set_result(True)
 
-    async def _reconnect(self, event):  # pylint: disable=unused-argument
+    async def _reconnect(self, _event):
         """Trigger a reconnection attempt.
 
         This triggers a reconnection attempt and implements the same
@@ -570,11 +667,11 @@ class EcheLOn(ClientXMPP):
         avoid too frequent reconnection tries.
 
         Arguments:
-            event (dict): empty dummy dict
+            _event (dict): empty dummy dict
 
         """
         if self._connect_loop_wait_reconnect > 0:
-            self.event('reconnect_delay', self._connect_loop_wait_reconnect)
+            self.event("reconnect_delay", self._connect_loop_wait_reconnect)
             await asyncio.sleep(self._connect_loop_wait_reconnect)
 
         self._connect_loop_wait_reconnect = self._connect_loop_wait_reconnect * 2 + 1
@@ -589,10 +686,10 @@ class EcheLOn(ClientXMPP):
                 presence stanza.
 
         """
-        nick = str(presence['muc']['nick'])
-        jid = JID(presence['muc']['jid'])
+        nick = str(presence["muc"]["nick"])
+        jid = JID(presence["muc"]["jid"])
 
-        if not jid.resource.startswith('0ad'):
+        if not jid.resource.startswith("0ad"):
             return
 
         jid_0ad_res = JID(jid)
@@ -611,10 +708,10 @@ class EcheLOn(ClientXMPP):
                 presence stanza.
 
         """
-        nick = str(presence['muc']['nick'])
-        jid = JID(presence['muc']['jid'])
+        nick = str(presence["muc"]["nick"])
+        jid = JID(presence["muc"]["jid"])
 
-        if not jid.resource.startswith('0ad'):
+        if not jid.resource.startswith("0ad"):
             return
 
         logger.debug("Client '%s' with nick '%s' disconnected", jid, nick)
@@ -634,22 +731,22 @@ class EcheLOn(ClientXMPP):
         if msg["delay"]["stamp"]:
             return
 
-        if msg['mucnick'] == self.nick or self.nick.lower() not in msg['body'].lower():
+        if msg["mucnick"] == self.nick or self.nick.lower() not in msg["body"].lower():
             return
 
-        if (
-            self.last_info_msg and
-            self.last_info_msg + timedelta(seconds=INFO_MSG_COOLDOWN_SECONDS) > datetime.now(
-                tz=timezone.utc)
-        ):
+        if self.last_info_msg and self.last_info_msg + timedelta(
+            seconds=INFO_MSG_COOLDOWN_SECONDS
+        ) > datetime.now(tz=UTC):
             return
 
-        self.last_info_msg = datetime.now(tz=timezone.utc)
-        self.send_message(mto=msg['from'].bare,
-                          mbody="I am just a bot and provide the rating functionality for this "
-                                "lobby. Please don't disturb me, calculating these ratings is "
-                                "already difficult enough.",
-                          mtype='groupchat')
+        self.last_info_msg = datetime.now(tz=UTC)
+        self.send_message(
+            mto=msg["from"].bare,
+            mbody="I am just a bot and provide the rating functionality for this "
+            "lobby. Please don't disturb me, calculating these ratings is "
+            "already difficult enough.",
+            mtype="groupchat",
+        )
 
     def _iq_board_list_handler(self, iq):
         """Handle incoming leaderboard list requests.
@@ -658,19 +755,20 @@ class EcheLOn(ClientXMPP):
             iq (IQ): Received IQ stanza
 
         """
-        if not iq['from'].resource.startswith('0ad'):
+        if not iq["from"].resource.startswith("0ad"):
             return
 
-        command = iq['boardlist']['command']
-        jid = JID(iq['from'])
+        command = iq["boardlist"]["command"]
+        jid = JID(iq["from"])
         jid.resource = "0ad"
         self.leaderboard.get_or_create_player(jid)
-        if command == 'getleaderboard':
+        if command == "getleaderboard":
             try:
                 self._send_leaderboard(iq)
             except Exception:
-                logger.exception("Failed to process get leaderboard request from %s",
-                                 iq['from'].bare)
+                logger.exception(
+                    "Failed to process get leaderboard request from %s", iq["from"].bare
+                )
 
     def _iq_game_report_handler(self, iq):
         """Handle end of game reports from clients.
@@ -679,15 +777,15 @@ class EcheLOn(ClientXMPP):
             iq (IQ): Received IQ stanza
 
         """
-        if not iq['from'].resource.startswith('0ad'):
+        if not iq["from"].resource.startswith("0ad"):
             return
 
         iq_r = iq.reply()
 
         try:
-            self.report_manager.add_report(iq['from'], iq['gamereport']['game'])
+            self.report_manager.add_report(iq["from"], iq["gamereport"]["game"])
         except Exception:
-            logger.exception("Failed to update game statistics for %s", iq['from'].bare)
+            logger.exception("Failed to update game statistics for %s", iq["from"].bare)
             iq_r["error"]["condition"] = "internal-server-error"
 
         iq_r.send()
@@ -696,7 +794,7 @@ class EcheLOn(ClientXMPP):
         if rating_messages:
             while rating_messages:
                 message = rating_messages.popleft()
-                self.send_message(mto=self.room, mbody=message, mtype='groupchat', mnick=self.nick)
+                self.send_message(mto=self.room, mbody=message, mtype="groupchat", mnick=self.nick)
             self._broadcast_rating_list()
 
     def _iq_profile_handler(self, iq):
@@ -706,14 +804,15 @@ class EcheLOn(ClientXMPP):
             iq (IQ): Received IQ stanza
 
         """
-        if not iq['from'].resource.startswith('0ad'):
+        if not iq["from"].resource.startswith("0ad"):
             return
 
         try:
-            self._send_profile(iq, iq['profile']['command'])
+            self._send_profile(iq, iq["profile"]["command"])
         except Exception:
-            logger.exception("Failed to send profile about %s to %s", iq['profile']['command'],
-                             iq['from'].bare)
+            logger.exception(
+                "Failed to send profile about %s to %s", iq["profile"]["command"], iq["from"].bare
+            )
 
     def _send_leaderboard(self, iq):
         """Send the whole leaderboard.
@@ -726,32 +825,32 @@ class EcheLOn(ClientXMPP):
 
         iq = iq.reply()
         stanza = BoardListXmppPlugin()
-        stanza.add_command('boardlist')
+        stanza.add_command("boardlist")
         for player in ratings.values():
-            stanza.add_item(player['name'], player['rating'])
+            stanza.add_item(player["name"], player["rating"])
         iq.set_payload(stanza)
 
         try:
             iq.send()
         except Exception:
-            logger.exception("Failed to send leaderboard to %s", iq['to'])
+            logger.exception("Failed to send leaderboard to %s", iq["to"])
 
     def _broadcast_rating_list(self):
         """Broadcast the ratings of all online players."""
         nicks = {}
-        for nick in self.plugin['xep_0045'].get_roster(self.room):
-            jid = JID(self.plugin['xep_0045'].get_jid_property(self.room, nick, 'jid'))
+        for nick in self.plugin["xep_0045"].get_roster(self.room):
+            jid = JID(self.plugin["xep_0045"].get_jid_property(self.room, nick, "jid"))
 
-            if not jid.resource.startswith('0ad'):
+            if not jid.resource.startswith("0ad"):
                 continue
 
             nicks[jid] = nick
         ratings = self.leaderboard.get_rating_list(nicks)
 
         stanza = BoardListXmppPlugin()
-        stanza.add_command('ratinglist')
+        stanza.add_command("ratinglist")
         for player in ratings.values():
-            stanza.add_item(player['name'], player['rating'])
+            stanza.add_item(player["name"], player["rating"])
 
         for jid in nicks:
             iq = self.make_iq_result(ito=jid)
@@ -772,7 +871,7 @@ class EcheLOn(ClientXMPP):
         """
         player_jid = None
 
-        jid_str = self.plugin['xep_0045'].get_jid_property(self.room, player_nick, 'jid')
+        jid_str = self.plugin["xep_0045"].get_jid_property(self.room, player_nick, "jid")
         if jid_str:
             player_jid = JID(jid_str)
             player_jid.resource = "0ad"
@@ -780,21 +879,24 @@ class EcheLOn(ClientXMPP):
             # The player the profile got requested for is not online, so
             # let's assume the JID contains the nick as local part.
             try:
-                player_jid = JID('%s@%s/%s' % (player_nick, self.sjid.domain, '0ad'))
+                player_jid = JID(f"{player_nick}@{self.sjid.domain}/0ad")
             except InvalidJID:
                 pass
 
-        if player_jid:
-            stats = self.leaderboard.get_profile(player_jid)
-        else:
-            stats = {}
+        stats = self.leaderboard.get_profile(player_jid) if player_jid else {}
 
         iq = iq.reply()
         stanza = ProfileXmppPlugin()
         if stats:
-            stanza.add_item(player_nick, stats['rating'], stats['highestRating'],
-                            stats['rank'], stats['totalGamesPlayed'], stats['wins'],
-                            stats['losses'])
+            stanza.add_item(
+                player_nick,
+                stats["rating"],
+                stats["highestRating"],
+                stats["rank"],
+                stats["totalGamesPlayed"],
+                stats["wins"],
+                stats["losses"],
+            )
         else:
             stanza.add_item(player_nick, -2)
         stanza.add_command(player_nick)
@@ -803,7 +905,7 @@ class EcheLOn(ClientXMPP):
         try:
             iq.send()
         except Exception:
-            logger.exception("Failed to send profile to %s", iq['to'])
+            logger.exception("Failed to send profile to %s", iq["to"])
 
 
 def parse_args():
@@ -813,30 +915,48 @@ def parse_args():
          Parsed command line arguments
 
     """
-    parser = ArgumentParserWithConfigFile(formatter_class=ArgumentDefaultsHelpFormatter,
-                                          description="EcheLOn - XMPP Rating Bot")
+    parser = ArgumentParserWithConfigFile(
+        formatter_class=ArgumentDefaultsHelpFormatter, description="EcheLOn - XMPP Rating Bot"
+    )
 
     verbosity_parser = parser.add_mutually_exclusive_group()
-    verbosity_parser.add_argument("-v", action="count", dest="verbosity", default=0,
-                                  help="Increase verbosity of logging. Can be provided up to "
-                                       "three times to get full debug logging")
-    verbosity_parser.add_argument("--verbosity", type=int,
-                                  help="Increase verbosity of logging. Supported values are 0 to 3"
-                                  )
+    verbosity_parser.add_argument(
+        "-v",
+        action="count",
+        dest="verbosity",
+        default=0,
+        help="Increase verbosity of logging. Can be provided up to "
+        "three times to get full debug logging",
+    )
+    verbosity_parser.add_argument(
+        "--verbosity", type=int, help="Increase verbosity of logging. Supported values are 0 to 3"
+    )
 
-    parser.add_argument('-m', '--domain', help="XMPP server to connect to",
-                        default='lobby.wildfiregames.com')
-    parser.add_argument('-l', '--login', help="username for login", default='EcheLOn')
-    parser.add_argument('-p', '--password', help="password for login", default='XXXXXX')
-    parser.add_argument('-n', '--nickname', help="nickname shown to players", default='RatingsBot')
-    parser.add_argument('-r', '--room', help="XMPP MUC room to join", default='arena')
-    parser.add_argument('--database-url', help="URL for the leaderboard database",
-                        default='sqlite:///lobby_rankings.sqlite3')
-    parser.add_argument('-s', '--server', help='address of the ejabberd server',
-                        action='store', dest='xserver', default=None)
-    parser.add_argument('--no-verify',
-                        help="Don't verify the TLS server certificate when connecting",
-                        action='store_true')
+    parser.add_argument(
+        "-m", "--domain", help="XMPP server to connect to", default="lobby.wildfiregames.com"
+    )
+    parser.add_argument("-l", "--login", help="username for login", default="EcheLOn")
+    parser.add_argument("-p", "--password", help="password for login", default="XXXXXX")
+    parser.add_argument("-n", "--nickname", help="nickname shown to players", default="RatingsBot")
+    parser.add_argument("-r", "--room", help="XMPP MUC room to join", default="arena")
+    parser.add_argument(
+        "--database-url",
+        help="URL for the leaderboard database",
+        default="sqlite:///lobby_rankings.sqlite3",
+    )
+    parser.add_argument(
+        "-s",
+        "--server",
+        help="address of the ejabberd server",
+        action="store",
+        dest="xserver",
+        default=None,
+    )
+    parser.add_argument(
+        "--no-verify",
+        help="Don't verify the TLS server certificate when connecting",
+        action="store_true",
+    )
 
     return parser.parse_args()
 
@@ -855,19 +975,25 @@ def main():
         root_logger = logging.getLogger()
         root_logger.setLevel(log_level)
 
-    logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
-                        datefmt='%Y-%m-%dT%H:%M:%S%z')
+    logging.basicConfig(
+        format="%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%dT%H:%M:%S%z"
+    )
     logger.setLevel(log_level)
 
     leaderboard = Leaderboard(args.database_url)
-    xmpp = EcheLOn(JID('%s@%s/%s' % (args.login, args.domain, 'CC')), args.password,
-                   JID(args.room + '@conference.' + args.domain), args.nickname, leaderboard,
-                   verify_certificate=not args.no_verify)
-    xmpp.register_plugin('xep_0030')  # Service Discovery
-    xmpp.register_plugin('xep_0004')  # Data Forms
-    xmpp.register_plugin('xep_0045')  # Multi-User Chat
-    xmpp.register_plugin('xep_0060')  # Publish-Subscribe
-    xmpp.register_plugin('xep_0199', {'keepalive': True})  # XMPP Ping
+    xmpp = EcheLOn(
+        JID(f"{args.login}@{args.domain}/CC"),
+        args.password,
+        JID(args.room + "@conference." + args.domain),
+        args.nickname,
+        leaderboard,
+        verify_certificate=not args.no_verify,
+    )
+    xmpp.register_plugin("xep_0030")  # Service Discovery
+    xmpp.register_plugin("xep_0004")  # Data Forms
+    xmpp.register_plugin("xep_0045")  # Multi-User Chat
+    xmpp.register_plugin("xep_0060")  # Publish-Subscribe
+    xmpp.register_plugin("xep_0199", {"keepalive": True})  # XMPP Ping
 
     if args.xserver:
         xmpp.connect((args.xserver, 5222))
@@ -877,5 +1003,5 @@ def main():
     asyncio.get_event_loop().run_until_complete(xmpp.shutdown)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

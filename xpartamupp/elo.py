@@ -36,8 +36,7 @@ VOLATILITY_CONSTANT = 20
 ANTI_INFLATION = 0.015
 
 
-def get_rating_adjustment(rating, opponent_rating, games_played,
-                          opponent_games_played, result):  # pylint: disable=unused-argument
+def get_rating_adjustment(rating, opponent_rating, games_played, _opponent_games_played, result):
     """Calculate the rating adjustment after rated 1v1 games.
 
      The rating adjustment is calculated using a simplified
@@ -53,7 +52,7 @@ def get_rating_adjustment(rating, opponent_rating, games_played,
                                game.
         games_played (int): Number of games the first player has played
                             before this game.
-        opponent_games_played (int): Number of games the second player
+        _opponent_games_played (int): Number of games the second player
                                      has played before this game.
         result (int): 1 if the first player won, 0 if draw or -1 if the
                       second player won.
@@ -64,19 +63,25 @@ def get_rating_adjustment(rating, opponent_rating, games_played,
 
     """
     if rating < -2199 or opponent_rating < -2199:
-        raise ValueError('Too small rating given: rating: %i, opponent rating: %i' %
-                         (rating, opponent_rating))
+        raise ValueError(
+            "Too small rating given: rating: %i, opponent rating: %i" % (rating, opponent_rating)
+        )
 
-    rating_k_factor = 50.0 * (min(rating, ELO_K_FACTOR_CONSTANT_RATING) /
-                              ELO_K_FACTOR_CONSTANT_RATING + 1.0) / 2.0
-    player_volatility = (min(max(0, games_played), VOLATILITY_CONSTANT) /
-                         VOLATILITY_CONSTANT + 0.25) / 1.25
+    rating_k_factor = (
+        50.0
+        * (min(rating, ELO_K_FACTOR_CONSTANT_RATING) / ELO_K_FACTOR_CONSTANT_RATING + 1.0)
+        / 2.0
+    )
+    player_volatility = (
+        min(max(0, games_played), VOLATILITY_CONSTANT) / VOLATILITY_CONSTANT + 0.25
+    ) / 1.25
     volatility = rating_k_factor * player_volatility
     rating_difference = opponent_rating - rating
-    rating_adjustment = (rating_difference + result * ELO_SURE_WIN_DIFFERENCE) / volatility - \
-        ANTI_INFLATION
+    rating_adjustment = (
+        rating_difference + result * ELO_SURE_WIN_DIFFERENCE
+    ) / volatility - ANTI_INFLATION
     if result == 1:
         return round(max(0.0, rating_adjustment))
-    elif result == -1:
+    if result == -1:
         return round(min(0.0, rating_adjustment))
     return round(rating_adjustment)
