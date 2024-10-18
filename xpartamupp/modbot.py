@@ -22,6 +22,7 @@ import logging
 import re
 import shlex
 import ssl
+import string
 from argparse import (
     ONE_OR_MORE,
     PARSER,
@@ -34,16 +35,19 @@ from argparse import (
     Namespace,
     _MutuallyExclusiveGroup,
 )
-from asyncio import Future, Task
+from asyncio import CancelledError, Future, Task
 from collections.abc import Iterable, Sequence
 from datetime import UTC, datetime, timedelta
 
 import dateparser
+from simplemma import LanguageDetector, Lemmatizer, simple_tokenizer
+from simplemma.strategies import DefaultStrategy
+from simplemma.strategies.dictionaries import TrieDictionaryFactory
 from slixmpp import ClientXMPP, Message
 from slixmpp.exceptions import IqError
 from slixmpp.jid import JID
 from slixmpp.plugins.xep_0045 import MUCPresence
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.dialects.sqlite.base import SQLiteDialect
 from sqlalchemy.orm import scoped_session, sessionmaker
 
@@ -52,6 +56,8 @@ from xpartamupp.lobby_moderation_db import (
     KickEvent,
     Moderator,
     MuteEvent,
+    ProfanityIncident,
+    ProfanityTerms,
     UnmuteEvent,
 )
 from xpartamupp.utils import ArgumentParserWithConfigFile
@@ -62,6 +68,20 @@ from xpartamupp.utils import ArgumentParserWithConfigFile
 INFO_MSG_COOLDOWN_SECONDS = 120
 
 logger = logging.getLogger(__name__)
+
+PROFANITY_SUPPORTED_LANGUAGES = {
+    "de": "German",
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "pl": "Polish",
+    "pt": "Portuguese",
+    "ru": "Russian",
+    "tr": "Turkish",
+}
+PROFANITY_MUTE_WINDOW_MINUTES = 60 * 24 * 31 * 3
+PROFANITY_MUTE_THRESHOLD = 3
+PROFANITY_MAX_MUTE_DURATION_MINUTES = 60 * 24 * 7
 
 
 class ModCmdParser(ArgumentParser):
@@ -209,6 +229,14 @@ def get_cmd_parser() -> ArgumentParser:
         "reason for the kick. It'll also be shown "
         "to the user.",
     )
+    profanity_parser = cmd_subparsers.add_parser(
+        "profanitylist", formatter_class=ModBotSubparserArgumentFormatter
+    )
+    profanity_parser.add_argument(
+        "lang",
+        help="Language to list profanity terms for or "
+        '"languages" to get a list of supported languages',
+    )
     return cmd_parser
 
 
@@ -237,6 +265,7 @@ class ModBot(ClientXMPP):
         command_room: JID,
         db_url: str,
         verify_certificate: bool = True,
+        enable_profanity_monitoring: bool = False,
     ) -> None:
         """Initialize ModBot.
 
@@ -272,6 +301,14 @@ class ModBot(ClientXMPP):
         self.shutdown = Future()
         self._connect_loop_wait_reconnect = 0
 
+        if enable_profanity_monitoring:
+            supported_languages = tuple(lang for lang in PROFANITY_SUPPORTED_LANGUAGES)
+            lemmatization_strategy = DefaultStrategy(dictionary_factory=TrieDictionaryFactory())
+            self.language_detector = LanguageDetector(
+                supported_languages, lemmatization_strategy=lemmatization_strategy
+            )
+            self.text_lemmatizer = Lemmatizer(lemmatization_strategy=lemmatization_strategy)
+
         self.rooms = rooms
         self.command_room = command_room
         self.nick = nick
@@ -286,6 +323,8 @@ class ModBot(ClientXMPP):
         for room in self.rooms:
             self.add_event_handler(f"muc::{room}::message", self._muc_message)
             self.add_event_handler(f"muc::{room}::presence", self._muc_presence_change)
+            if enable_profanity_monitoring:
+                self.add_event_handler(f"muc::{room}::message", self._muc_check_profanity)
         self.add_event_handler(f"muc::{self.command_room}::message", self._muc_command_message)
 
         self.add_event_handler("failed_all_auth", self._shutdown)
@@ -427,6 +466,122 @@ class ModBot(ClientXMPP):
             mtype="groupchat",
         )
 
+    async def _muc_check_profanity(self, msg: Message) -> None:
+        """Check message text for profanity.
+
+        Detects profanity in chat messages and automatically kicks the
+        offending user.
+
+        Arguments:
+            msg (Message): Received MUC message
+        """
+        if msg["delay"]["stamp"]:
+            return
+
+        if msg["mucnick"] == self.nick:
+            return
+
+        user = JID(
+            self.plugin["xep_0045"].get_jid_property(msg["from"].bare, msg["mucnick"], "jid")
+        )
+        if not str(user):
+            logger.warning(
+                'Couldn\'t find JID for "%s", using manually built one.', msg["mucnick"]
+            )
+            user = JID(f'{msg["mucnick"].lower()}@{self.boundjid.domain}')
+
+        msg_body = msg["body"]
+        room = msg["muc"]["room"]
+
+        detected_languages = self.language_detector.proportion_in_each_language(msg_body)
+        detected_languages_sorted = sorted(
+            detected_languages.items(), key=lambda x: x[1], reverse=True
+        )
+
+        if detected_languages_sorted[0][0] == "unk":
+            languages = ("en",)
+            logger.debug('Couldn\'t detect language of the following text: "%s"', msg_body)
+        else:
+            languages = tuple(
+                key for key, value in detected_languages_sorted if key != "unk" and value == 1.0
+            )
+            if not languages:
+                languages = (detected_languages_sorted[0][0], "en")
+            logger.debug(
+                'Detected languages "%s" for the following text: "%s"',
+                ", ".join(languages),
+                msg_body,
+            )
+
+        online_users = {name.lower() for name in self.plugin["xep_0045"].get_roster(room)}
+        tokens = [
+            token
+            for token in simple_tokenizer(msg_body)
+            if token.lower() not in online_users and token not in string.punctuation
+        ]
+
+        tokens_lemmatized = []
+        for token in tokens:
+            tokens_lemmatized.append(self.text_lemmatizer.lemmatize(token, lang=languages).lower())
+
+        with self.db_session() as db:
+            profanity_terms = set(
+                db.execute(
+                    select(ProfanityTerms.term).filter(ProfanityTerms.language.in_(languages))
+                ).scalars()
+            )
+            offending_terms = re.findall(
+                r"(?:^|(?<= ))(" + "|".join(profanity_terms) + r")(?= |$)",
+                " ".join(tokens_lemmatized),
+            )
+            if not offending_terms:
+                return
+
+            profanity_incident = ProfanityIncident(
+                player=str(user.bare),
+                room=room,
+                offending_content=msg_body,
+                matched_terms=sorted(offending_terms),
+                detected_languages=languages,
+            )
+            db.add(profanity_incident)
+            db.commit()
+
+            existing_incidents = next(
+                iter(
+                    db.execute(
+                        select(func.count("*"))
+                        .select_from(ProfanityIncident)
+                        .filter(ProfanityIncident.player == str(user.bare))
+                        .filter(
+                            ProfanityIncident.timestamp
+                            >= datetime.now(tz=UTC)
+                            - timedelta(minutes=PROFANITY_MUTE_WINDOW_MINUTES)
+                        )
+                    ).scalars()
+                )
+            )
+
+        if existing_incidents < PROFANITY_MUTE_THRESHOLD:
+            self.send_message(
+                mto=msg["from"].bare,
+                mbody=f"{msg['mucnick']}: Please don't use profanity or you will be muted.",
+                mtype="groupchat",
+            )
+        else:
+            mute_duration = min(
+                5 * 4 ** (existing_incidents - PROFANITY_MUTE_THRESHOLD),
+                PROFANITY_MAX_MUTE_DURATION_MINUTES,
+            )
+            await self.mute_user(
+                user,
+                f"{mute_duration}m",
+                self.boundjid,
+                "profanity in " "chat",
+                interactive=False,
+                offending_content=msg_body,
+            )
+
     async def _muc_command_message(self, msg: Message) -> None:
         """Process messages in the command MUC room.
 
@@ -465,6 +620,9 @@ class ModBot(ClientXMPP):
         if args.command == "mutelist":
             await self.send_mutelist()
             return
+        if args.command == "profanitylist":
+            await self.send_profanity_term_list(args.lang)
+            return
 
         user = JID(args.user + "@" + self.boundjid.domain)
         moderator = JID(moderator)
@@ -477,7 +635,15 @@ class ModBot(ClientXMPP):
         elif args.command == "kick":
             await self.kick_user(user, moderator, reason)
 
-    async def mute_user(self, user: JID, duration: str, moderator: JID, reason: str) -> None:
+    async def mute_user(
+        self,
+        user: JID,
+        duration: str,
+        moderator: JID,
+        reason: str,
+        interactive: bool = True,
+        offending_content: str | None = None,
+    ) -> None:
         """Mute a user.
 
         Arguments:
@@ -487,7 +653,12 @@ class ModBot(ClientXMPP):
             moderator (JID): JID of the moderator who issued the mute
                              event
             reason (str): reason for muting the user
+            interactive (bool): Whether this got called by a moderator
+                                interacting with the bot or not
+            offending_content (str): Message the user got muted for.
         """
+        user.resource = None
+
         dateparser_settings = {
             "TIMEZONE": "UTC",
             "RETURN_AS_TIMEZONE_AWARE": True,
@@ -531,7 +702,7 @@ class ModBot(ClientXMPP):
                 return
 
             mute_event = MuteEvent(
-                player=str(user), moderator=str(moderator), mute_end=mute_end, reason=reason
+                player=str(user), moderator=moderator.bare, mute_end=mute_end, reason=reason
             )
             db.add(mute_event)
             db.commit()
@@ -556,12 +727,21 @@ class ModBot(ClientXMPP):
             old_task.cancel()
         self.unmute_tasks[user] = task
 
-        self.send_message(
-            mto=self.command_room,
-            mbody=f'"{user.node}" is now muted until '
-            f"{mute_end.strftime('%Y-%m-%d %H:%M:%S %Z')}",
-            mtype="groupchat",
-        )
+        if interactive:
+            self.send_message(
+                mto=self.command_room,
+                mbody=f'"{user.node}" is now muted until '
+                f"{mute_end.strftime('%Y-%m-%d %H:%M:%S %Z')}",
+                mtype="groupchat",
+            )
+        else:
+            self.send_message(
+                mto=self.command_room,
+                mbody=f'"{user.node}" got muted automatically until '
+                f"{mute_end.strftime('%Y-%m-%d %H:%M:%S %Z')} for the following message:\n"
+                f"> {offending_content}",
+                mtype="groupchat",
+            )
 
     async def send_mutelist(self) -> None:
         """Send a list of muted users to the command MUC room."""
@@ -603,8 +783,10 @@ class ModBot(ClientXMPP):
                              event
             reason (str): reason for unmuting the user
         """
+        user.resource = None
+
         with self.db_session() as db:
-            unmute_event = UnmuteEvent(player=str(user), moderator=str(moderator), reason=reason)
+            unmute_event = UnmuteEvent(player=str(user), moderator=moderator.bare, reason=reason)
             db.add(unmute_event)
             db.commit()
 
@@ -639,8 +821,10 @@ class ModBot(ClientXMPP):
                              event
             reason (str): reason for kicking the user
         """
+        user.resource = None
+
         with self.db_session() as db:
-            kick_event = KickEvent(player=str(user), moderator=str(moderator), reason=reason)
+            kick_event = KickEvent(player=str(user), moderator=moderator.bare, reason=reason)
             db.add(kick_event)
             db.commit()
 
@@ -685,6 +869,62 @@ class ModBot(ClientXMPP):
                 mtype="groupchat",
             )
             return
+
+    async def send_profanity_term_list(self, lang: str) -> None:
+        """Send monitored profanity terms to the command room.
+
+        Arguments:
+            lang (str): Language to list the profanity terms for
+        """
+        lang = lang.lower()
+        if lang in ["lang", "languages"]:
+            languages = sorted(PROFANITY_SUPPORTED_LANGUAGES.values())
+            self.send_message(
+                mto=self.command_room,
+                mbody="Languages currently supported for profanity detection:\n"
+                f"{', '.join(languages)}",
+                mtype="groupchat",
+            )
+            return
+
+        lang_code = lang if lang in PROFANITY_SUPPORTED_LANGUAGES else None
+        if not lang_code:
+            for key, value in PROFANITY_SUPPORTED_LANGUAGES.items():
+                if value.lower() == lang:
+                    lang_code = key
+                    break
+
+        if not lang_code:
+            self.send_message(
+                mto=self.command_room,
+                mbody=f'Language "{lang}" isn\'t supported for profanity detection.',
+                mtype="groupchat",
+            )
+            return
+
+        with self.db_session() as db:
+            terms = list(
+                db.execute(
+                    select(ProfanityTerms.term)
+                    .filter_by(language=lang_code)
+                    .order_by(ProfanityTerms.term)
+                ).scalars()
+            )
+        if not terms:
+            self.send_message(
+                mto=self.command_room,
+                mbody=f"No profanity terms are currently being monitored for"
+                f" {PROFANITY_SUPPORTED_LANGUAGES[lang_code]}.",
+                mtype="groupchat",
+            )
+            return
+
+        msg = (
+            "Profanity terms currently being monitored for "
+            f"{PROFANITY_SUPPORTED_LANGUAGES[lang_code]}:\n"
+        )
+        msg += "".join(f"- {term}\n" for term in terms)
+        self.send_message(mto=self.command_room, mbody=msg, mtype="groupchat")
 
     async def _check_matching_nick(self, jid: JID, nick: str, room: JID) -> bool:
         """Kick users whose local JID part doesn't match their nick.
@@ -750,7 +990,10 @@ class ModBot(ClientXMPP):
             user (JID): JID of the user to unmute
         """
         delay = unmute_dt - datetime.now(tz=UTC)
-        await asyncio.sleep(delay.total_seconds())
+        try:
+            await asyncio.sleep(delay.total_seconds())
+        except CancelledError:
+            return
 
         for room in self.rooms:
             nick = self._get_nick_with_proper_case(user.node, room)
@@ -824,6 +1067,11 @@ def parse_args():
         help="Don't verify the TLS server certificate when connecting",
         action="store_true",
     )
+    parser.add_argument(
+        "--enable-profanity-monitoring",
+        help="Enable monitoring of profanity in the XMPP MUC rooms",
+        action="store_true",
+    )
 
     return parser.parse_args()
 
@@ -855,6 +1103,7 @@ def main():
         JID(args.command_room + "@conference." + args.domain),
         args.database_url,
         verify_certificate=not args.no_verify,
+        enable_profanity_monitoring=args.enable_profanity_monitoring,
     )
     xmpp.register_plugin("xep_0045")  # Multi-User Chat
     xmpp.register_plugin("xep_0199", {"keepalive": True})  # XMPP Ping

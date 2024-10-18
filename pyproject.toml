@@ -20,6 +20,7 @@ dependencies = [
     "cachetools",
     "defusedxml",
     "dateparser",
+    "simplemma[marisa-trie]>=1.1.1",
     "slixmpp>=1.8.0",
     "sqlalchemy>=2.0.4",
 ]
@@ -87,5 +88,5 @@ max-doc-length = 72
 convention = "pep257"
 
 [tool.ruff.lint.pylint]
-max-args = 8
+max-args = 10
 max-nested-blocks = 4

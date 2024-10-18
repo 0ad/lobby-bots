@@ -24,6 +24,7 @@ from functools import partial
 from typing import Any, ClassVar
 
 from sqlalchemy import (
+    JSON,
     DateTime,
     ForeignKey,
     String,
@@ -69,20 +70,13 @@ class Base(DeclarativeBase):
     }
 
 
-class Blacklist(Base):
+class ProfanityTerms(Base):
     """Model for profanity terms."""
 
-    __tablename__ = "profanity_blacklist"
+    __tablename__ = "profanity_terms"
 
-    word: Mapped[str] = mapped_column(String(255), primary_key=True)
-
-
-class Whitelist(Base):
-    """Model for terms which are whitelisted from profanity."""
-
-    __tablename__ = "profanity_whitelist"
-
-    word: Mapped[str] = mapped_column(String(255), primary_key=True)
+    term: Mapped[str] = mapped_column(String(255), primary_key=True)
+    language: Mapped[str] = mapped_column(String(2), primary_key=True)
 
 
 class ProfanityIncident(Base):
@@ -91,10 +85,12 @@ class ProfanityIncident(Base):
     __tablename__ = "profanity_incidents"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    timestamp: Mapped[datetime]
+    timestamp: Mapped[datetime] = mapped_column(default=partial(datetime.now, tz=UTC))
     player: Mapped[str] = mapped_column(String(255))
+    room: Mapped[str] = mapped_column(String(255))
     offending_content: Mapped[str] = mapped_column(UnicodeText)
-    deleted: Mapped[bool]
+    detected_languages: Mapped[list[str]] = mapped_column(JSON)
+    matched_terms: Mapped[list[str]] = mapped_column(JSON)
 
 
 class JIDNickWhitelist(Base):
