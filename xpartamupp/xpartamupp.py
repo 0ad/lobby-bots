@@ -66,6 +66,7 @@ class Games:
             data["players-init"] = data["players"]
             data["nbp-init"] = data["nbp"]
             data["state"] = "init"
+            data["name"] = data["name"][:256]
         except (KeyError, TypeError, ValueError):
             logger.warning("Received invalid data for add game from %s: %s", jid, data)
             return False

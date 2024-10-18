@@ -22,6 +22,8 @@ from unittest import TestCase
 from unittest.mock import Mock, call, patch
 
 from cachetools import FIFOCache
+from hypothesis import example, given
+from hypothesis import strategies as st
 from parameterized import parameterized
 from slixmpp.jid import JID
 
@@ -35,7 +37,12 @@ class TestGames(TestCase):
         """Test successfully adding a game."""
         games = Games()
         jid = JID(jid="player1@domain.tld")
-        game_data = {"players": ["player1", "player2"], "nbp": "foo", "state": "init"}
+        game_data = {
+            "players": ["player1", "player2"],
+            "name": "game",
+            "nbp": "foo",
+            "state": "init",
+        }
         self.assertTrue(games.add_game(jid, game_data))
         all_games = games.get_all_games()
         game_data.update(
@@ -61,14 +68,41 @@ class TestGames(TestCase):
         games = Games()
         self.assertFalse(games.add_game(jid, game_data))
 
+    @given(game_name=st.text())
+    @example(game_name="a" * 300)
+    def test_add_long_game_name(self, game_name):
+        """Test adding a game with a long name cuts the name."""
+        games = Games()
+        jid = JID(jid="player1@domain.tld")
+        game_data = {
+            "players": ["player1", "player2"],
+            "name": game_name,
+            "nbp": "foo",
+            "state": "init",
+        }
+        self.assertTrue(games.add_game(jid, game_data))
+        all_games = games.get_all_games()
+        self.assertEqual(len(all_games), 1)
+        self.assertEqual(all_games["player1@domain.tld"]["name"], game_name[:256])
+
     def test_remove(self):
         """Test removal of games."""
         games = Games()
         jid1 = JID(jid="player1@domain.tld")
         jid2 = JID(jid="player3@domain.tld")
-        game_data1 = {"players": ["player1", "player2"], "nbp": "foo", "state": "init"}
+        game_data1 = {
+            "players": ["player1", "player2"],
+            "name": "game1",
+            "nbp": "foo",
+            "state": "init",
+        }
         games.add_game(jid1, game_data1)
-        game_data2 = {"players": ["player3", "player4"], "nbp": "bar", "state": "init"}
+        game_data2 = {
+            "players": ["player3", "player4"],
+            "name": "game2",
+            "nbp": "bar",
+            "state": "init",
+        }
         games.add_game(jid2, game_data2)
         game_data1.update(
             {
