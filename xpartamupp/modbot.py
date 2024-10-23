@@ -74,7 +74,6 @@ PROFANITY_SUPPORTED_LANGUAGES = {
     "en": "English",
     "es": "Spanish",
     "fr": "French",
-    "pl": "Polish",
     "pt": "Portuguese",
     "ru": "Russian",
     "tr": "Turkish",
