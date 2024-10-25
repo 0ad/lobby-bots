@@ -529,6 +529,9 @@ class ModBot(ClientXMPP):
                     select(ProfanityTerms.term).filter(ProfanityTerms.language.in_(languages))
                 ).scalars()
             )
+            if not profanity_terms:
+                return
+
             offending_terms = re.findall(
                 r"(?:^|(?<= ))(" + "|".join(profanity_terms) + r")(?= |$)",
                 " ".join(tokens_lemmatized),
