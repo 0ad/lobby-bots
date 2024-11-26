@@ -1,7 +1,7 @@
 ---
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: check-added-large-files
       - id: check-case-conflict
@@ -23,7 +23,7 @@ repos:
       - id: forbid-tabs
 
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.39.0
+    rev: v0.43.0
     hooks:
       - id: markdownlint
 
@@ -42,7 +42,7 @@ repos:
         exclude: ^ejabberd_example.yml$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.4.5
+    rev: v0.8.0
     hooks:
       - id: ruff
         args:

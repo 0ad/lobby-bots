@@ -64,7 +64,7 @@ def get_rating_adjustment(rating, opponent_rating, games_played, _opponent_games
     """
     if rating < -2199 or opponent_rating < -2199:
         raise ValueError(
-            "Too small rating given: rating: %i, opponent rating: %i" % (rating, opponent_rating)
+            f"Too small rating given: rating: {rating}, opponent rating: {opponent_rating}"
         )
 
     rating_k_factor = (
