@@ -42,6 +42,7 @@ packages = ["xpartamupp"]
 echelon = "xpartamupp.echelon:main"
 echelon-db = "xpartamupp.lobby_ranking:main"
 modbot = "xpartamupp.modbot:main"
+modbot-db = "xpartamupp.lobby_moderation_db:main"
 xpartamupp = "xpartamupp.xpartamupp:main"
 
 [tool.ruff]
