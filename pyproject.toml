@@ -13,6 +13,7 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Games/Entertainment",
     "Topic :: Internet :: XMPP",
 ]
@@ -47,6 +48,7 @@ xpartamupp = "xpartamupp.xpartamupp:main"
 
 [tool.ruff]
 line-length = 99
+target-version = "py311"
 
 [tool.ruff.format]
 line-ending = "lf"
