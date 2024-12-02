@@ -227,7 +227,9 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="Helper command for database creation",
     )
-    parser.add_argument("action", help="Action to apply to the database", choices=["create"])
+    parser.add_argument(
+        "action", help="Action to apply to the database", choices=["create", "schema"]
+    )
     parser.add_argument(
         "--database-url",
         help="URL for the moderation database",
@@ -242,6 +244,13 @@ def main():
     engine = create_engine(args.database_url)
     if args.action == "create":
         Base.metadata.create_all(engine)
+    elif args.action == "schema":
+        engine = create_engine(
+            "sqlite://",
+            strategy="mock",
+            executor=lambda sql, _: print(sql.compile(dialect=engine.dialect)),  # noqa: T201
+        )
+        Base.metadata.create_all(engine, checkfirst=False)
 
 
 if __name__ == "__main__":
