@@ -288,9 +288,7 @@ class Leaderboard:
             jid for jid, state in game_report["playerStates"].items() if state == "won"
         ]
         # We only support 1v1s right now.
-        if len(winning_jids) > 1 or len(dict.keys(game_report["playerStates"])) != 2:
-            return False
-        return True
+        return len(winning_jids) == 1 and len(dict.keys(game_report["playerStates"])) == 2
 
     def _rate_game(self, game):
         """Update player ratings based on game outcome.

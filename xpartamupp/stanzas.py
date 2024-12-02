@@ -83,8 +83,7 @@ class GameListXmppPlugin(ElementBase):
         data = {}
 
         if game is not None:
-            for key, item in game.items():
-                data[key] = item
+            data = dict(game.items())
         return data
 
 
@@ -119,8 +118,7 @@ class GameReportXmppPlugin(ElementBase):
         data = {}
 
         if game is not None:
-            for key, item in game.items():
-                data[key] = item
+            data = dict(game.items())
         return data
 
 
