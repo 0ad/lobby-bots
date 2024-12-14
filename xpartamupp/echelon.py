@@ -50,7 +50,7 @@ LEADERBOARD_DEFAULT_RATING = 1200
 
 # Number of seconds to not respond to mentions after having responded
 # to a mention.
-INFO_MSG_COOLDOWN_SECONDS = 120
+INFO_MSG_COOLDOWN_SECONDS = 15 * 60
 
 logger = logging.getLogger(__name__)
 
