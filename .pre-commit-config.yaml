@@ -50,5 +50,3 @@ repos:
       - id: ruff-format
         args:
           - --check
-          - --target-version
-          - py311
