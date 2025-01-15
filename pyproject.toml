@@ -93,3 +93,4 @@ convention = "pep257"
 [tool.ruff.lint.pylint]
 max-args = 10
 max-nested-blocks = 4
+max-returns = 8
