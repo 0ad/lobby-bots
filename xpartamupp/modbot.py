@@ -45,7 +45,7 @@ from simplemma.strategies import DefaultStrategy
 from simplemma.strategies.dictionaries import TrieDictionaryFactory
 from slixmpp import ClientXMPP, Message
 from slixmpp.exceptions import IqError
-from slixmpp.jid import JID
+from slixmpp.jid import JID, InvalidJID
 from slixmpp.plugins.xep_0045 import MUCPresence
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.dialects.sqlite.base import SQLiteDialect
@@ -584,7 +584,7 @@ class ModBot(ClientXMPP):
                 offending_content=msg_body,
             )
 
-    async def _muc_command_message(self, msg: Message) -> None:
+    async def _muc_command_message(self, msg: Message) -> None:  # noqa: C901
         """Process messages in the command MUC room.
 
         Detect commands posted in the command MUC room and act on them.
@@ -626,7 +626,18 @@ class ModBot(ClientXMPP):
             await self.send_profanity_term_list(args.lang)
             return
 
-        user = JID(args.user + "@" + self.boundjid.domain)
+        try:
+            user = JID(
+                "".join([c for c in args.user if c.isprintable()]) + "@" + self.boundjid.domain
+            )
+        except InvalidJID:
+            self.send_message(
+                mto=self.command_room,
+                mbody=f'"{args.user}" is an invalid nickname.',
+                mtype="groupchat",
+            )
+            return
+
         moderator = JID(moderator)
         reason = " ".join(args.reason)
 
