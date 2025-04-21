@@ -373,7 +373,7 @@ class ModBot(ClientXMPP):
         also cancels all running unmute tasks. These tasks are being
         rescheduled once a new connection got established.
         """
-        for key in self.unmute_tasks:
+        for key in list(self.unmute_tasks):
             try:
                 task = self.unmute_tasks.pop(key)
             except KeyError:
