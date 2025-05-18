@@ -505,7 +505,7 @@ class ModBot(ClientXMPP):
                 key for key, value in detected_languages_sorted if key != "unk" and value == 1.0
             )
             if not languages:
-                languages = (detected_languages_sorted[0][0], "en")
+                languages = tuple(dict.fromkeys([detected_languages_sorted[0][0], "en"]))
             logger.debug(
                 'Detected languages "%s" for the following text: "%s"',
                 ", ".join(languages),
