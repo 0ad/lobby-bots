@@ -662,6 +662,7 @@ class EcheLOn(ClientXMPP):
 
         """
         self._connect_loop_wait_reconnect = 0
+        await self.plugin["xep_0060"].get_nodes(jid=self.pubsub_jid)
         await self.plugin["xep_0045"].join_muc_wait(self.room, self.nick)
         self.send_presence()
         self.get_roster()
