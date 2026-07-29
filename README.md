@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> This repository moved to a new location. It's now available at https://gitea.wildfiregames.com/0ad/lobby-bots
+
 # 0 A.D. / Pyrogenesis Multiplayer Lobby Setup
 
 This README explains how to setup a custom Pyrogenesis Multiplayer Lobby server that can be used
