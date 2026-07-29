@@ -143,6 +143,7 @@ class TestArgumentParsing(TestCase):
                     room="arena",
                     verbosity=0,
                     database_url="sqlite:///lobby_rankings.sqlite3",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -157,6 +158,7 @@ class TestArgumentParsing(TestCase):
                     room="arena",
                     verbosity=1,
                     database_url="sqlite:///lobby_rankings.sqlite3",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -171,6 +173,7 @@ class TestArgumentParsing(TestCase):
                     room="arena",
                     verbosity=2,
                     database_url="sqlite:///lobby_rankings.sqlite3",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -185,6 +188,7 @@ class TestArgumentParsing(TestCase):
                     room="arena",
                     verbosity=3,
                     database_url="sqlite:///lobby_rankings.sqlite3",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -199,6 +203,7 @@ class TestArgumentParsing(TestCase):
                     room="arena",
                     verbosity=3,
                     database_url="sqlite:///lobby_rankings.sqlite3",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -213,6 +218,7 @@ class TestArgumentParsing(TestCase):
                     password="XXXXXX",
                     room="arena",
                     database_url="sqlite:///lobby_rankings.sqlite3",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -227,6 +233,7 @@ class TestArgumentParsing(TestCase):
                     password="XXXXXX",
                     room="arena",
                     database_url="sqlite:///lobby_rankings.sqlite3",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -253,6 +260,7 @@ class TestArgumentParsing(TestCase):
                     password="123456",
                     room="arena123",
                     database_url="sqlite:///lobby_rankings.sqlite3",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -274,6 +282,7 @@ class TestArgumentParsing(TestCase):
                     password="123456",
                     room="arena123",
                     database_url="sqlite:////tmp/db.sqlite3",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -288,6 +297,22 @@ class TestArgumentParsing(TestCase):
                     password="XXXXXX",
                     room="arena",
                     database_url="sqlite:///lobby_rankings.sqlite3",
+                    disable_legacy_lists=False,
+                ),
+            ),
+            (
+                ["--disable-legacy-lists"],
+                Namespace(
+                    domain="lobby.wildfiregames.com",
+                    login="EcheLOn",
+                    verbosity=0,
+                    xserver=None,
+                    no_verify=False,
+                    nickname="RatingsBot",
+                    password="XXXXXX",
+                    room="arena",
+                    database_url="sqlite:///lobby_rankings.sqlite3",
+                    disable_legacy_lists=True,
                 ),
             ),
         ]

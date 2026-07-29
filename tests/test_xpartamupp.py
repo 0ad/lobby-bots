@@ -155,6 +155,7 @@ class TestArgumentParsing(TestCase):
                     nickname="WFGBot",
                     password="XXXXXX",
                     room="arena",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -168,6 +169,7 @@ class TestArgumentParsing(TestCase):
                     nickname="WFGBot",
                     password="XXXXXX",
                     room="arena",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -181,6 +183,7 @@ class TestArgumentParsing(TestCase):
                     nickname="WFGBot",
                     password="XXXXXX",
                     room="arena",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -194,6 +197,7 @@ class TestArgumentParsing(TestCase):
                     nickname="WFGBot",
                     password="XXXXXX",
                     room="arena",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -207,6 +211,7 @@ class TestArgumentParsing(TestCase):
                     nickname="WFGBot",
                     password="XXXXXX",
                     room="arena",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -220,6 +225,7 @@ class TestArgumentParsing(TestCase):
                     no_verify=False,
                     password="XXXXXX",
                     room="arena",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -233,6 +239,7 @@ class TestArgumentParsing(TestCase):
                     no_verify=False,
                     password="XXXXXX",
                     room="arena",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -258,6 +265,7 @@ class TestArgumentParsing(TestCase):
                     nickname="Bot",
                     password="123456",
                     room="arena123",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -277,6 +285,7 @@ class TestArgumentParsing(TestCase):
                     nickname="Bot",
                     password="123456",
                     room="arena123",
+                    disable_legacy_lists=False,
                 ),
             ),
             (
@@ -290,6 +299,21 @@ class TestArgumentParsing(TestCase):
                     nickname="WFGBot",
                     password="XXXXXX",
                     room="arena",
+                    disable_legacy_lists=False,
+                ),
+            ),
+            (
+                ["--disable-legacy-lists"],
+                Namespace(
+                    domain="lobby.wildfiregames.com",
+                    login="xpartamupp",
+                    verbosity=0,
+                    xserver=None,
+                    no_verify=False,
+                    nickname="WFGBot",
+                    password="XXXXXX",
+                    room="arena",
+                    disable_legacy_lists=True,
                 ),
             ),
         ]

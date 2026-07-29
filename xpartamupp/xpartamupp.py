@@ -24,9 +24,11 @@ import time
 from argparse import ArgumentDefaultsHelpFormatter
 from asyncio import Future
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from cachetools import FIFOCache
 from slixmpp import ClientXMPP
+from slixmpp.exceptions import IqError
 from slixmpp.jid import JID
 from slixmpp.stanza import Iq
 from slixmpp.xmlstream.handler import Callback
@@ -35,6 +37,10 @@ from slixmpp.xmlstream.stanzabase import register_stanza_plugin
 
 from xpartamupp.stanzas import GameListXmppPlugin
 from xpartamupp.utils import ArgumentParserWithConfigFile
+
+
+if TYPE_CHECKING:
+    from slixmpp.plugins.xep_0004 import Form
 
 
 # Number of seconds to not respond to mentions after having responded
@@ -162,7 +168,9 @@ class Games:
 class XpartaMuPP(ClientXMPP):
     """Main class which handles IQ data and sends new data."""
 
-    def __init__(self, sjid, password, room, nick, verify_certificate=True):
+    def __init__(
+        self, sjid, password, room, nick, verify_certificate=True, disable_legacy_lists=False
+    ):
         """Initialize XpartaMuPP.
 
         Arguments:
@@ -173,6 +181,9 @@ class XpartaMuPP(ClientXMPP):
              verify_certificate (bool): Whether to verify the TLS
                                         certificate provided by the
                                         server
+             disable_legacy_lists (bool): Whether to use the old way to
+                                          send game lists to players in
+                                          addition to using PubSub
 
         """
         super().__init__(sjid, password)
@@ -189,6 +200,10 @@ class XpartaMuPP(ClientXMPP):
         self.room = room
         self.nick = nick
 
+        self.pubsub_jid = JID("pubsub." + self.server)
+        self.pubsub_gamelist_node = f"0ad#{self.room.local}#gamelist#v1"
+        self.legacy_lists_disabled = disable_legacy_lists
+
         self.games = Games()
 
         self.last_info_msg = None
@@ -200,6 +215,7 @@ class XpartaMuPP(ClientXMPP):
         )
 
         self.add_event_handler("session_start", self._session_start)
+        self.add_event_handler("disco_items", self._pubsub_node_disco)
         self.add_event_handler(f"muc::{self.room}::got_online", self._muc_online)
         self.add_event_handler(f"muc::{self.room}::got_offline", self._muc_offline)
         self.add_event_handler("groupchat_message", self._muc_message)
@@ -214,6 +230,8 @@ class XpartaMuPP(ClientXMPP):
 
         """
         self._connect_loop_wait_reconnect = 0
+
+        await self.plugin["xep_0060"].get_nodes(jid=self.pubsub_jid)
         await self.plugin["xep_0045"].join_muc_wait(self.room, self.nick)
         self.send_presence()
         self.get_roster()
@@ -253,6 +271,114 @@ class XpartaMuPP(ClientXMPP):
 
         self.connect()
 
+    async def _create_pubsub_node(self, node_name, node_config):
+        """Create a new PubSub node.
+
+        This creates a new PubSub node with the given configuration and
+        checks whether the node got the expected node name assigned.
+
+        Arguments:
+            node_name (str): Desired name of the PubSub node
+            node_config (Form): form with options to send when
+                                creating the node
+        """
+        try:
+            result = await self.plugin["xep_0060"].create_node(
+                jid=self.pubsub_jid, node=node_name, config=node_config
+            )
+        except IqError as exc:
+            logger.error("Creating the PubSub node failed: %s", exc.text)
+        else:
+            if result["pubsub"]["create"]["node"] != node_name:
+                logger.error(
+                    'Created PubSub node got a different node name ("%s") than ' 'expected ("%s")',
+                    result["pubsub"]["create"]["node"],
+                    node_name,
+                )
+
+    async def _check_pubsub_node_config(self, node_name, node_config):
+        """Check the configuration of a PubSub node.
+
+        This checks if the configuration of an existing PubSub node is
+        as expected.
+
+        Arguments:
+            node_name (str): Name of the PubSub node to check
+            node_config (Form): form with options to check the node
+                                configuration against
+        """
+        current_node_config = await self.plugin["xep_0060"].get_node_config(
+            jid=self.pubsub_jid, node=node_name
+        )
+        current_node_config_form: Form = current_node_config["pubsub_owner"]["configure"]["form"]
+
+        differences = {}
+        current_node_config_dict = current_node_config_form.get_values()
+        for key, new_value in node_config.get_values().items():
+            if current_node_config_dict.get(key) != new_value:
+                differences[key] = (new_value, current_node_config_dict.get(key))
+
+        if differences:
+            logger.warning(
+                "Existing PubSub node config differs from expected config! This "
+                "will likely cause the lobby not to behave as expected!"
+            )
+            for key, value in differences.items():
+                logger.warning(
+                    'Current value ("%s") for option "%s" is different than the '
+                    'expected one ("%s")',
+                    value[1],
+                    key,
+                    value[0],
+                )
+
+    async def _pubsub_node_disco(self, event):
+        """Handle discovery and creation of PubSub nodes.
+
+        This handles disco responses from the PubSub service to
+        discover the necessary PubSub node for publishing game list
+        information. If the node doesn't exist, it'll be created with
+        the proper configuration. Creation only needs to happen once
+        per node name and can be done manually as well.
+
+        Arguments:
+            event (IQ): Disco response event
+        """
+        if event["from"] != self.pubsub_jid or not event.get("disco_items"):
+            return
+
+        nodes = event["disco_items"]["items"]
+        node_names = [node[1] for node in nodes]
+
+        default_node_config = await self.plugin["xep_0060"].get_node_config(jid=self.pubsub_jid)
+        new_node_config_form: Form = default_node_config["pubsub_owner"]["default"]["form"]
+        new_node_config_form.reply()
+
+        answers = {
+            "pubsub#access_model": "open",
+            "pubsub#deliver_notifications": True,
+            "pubsub#deliver_payloads": True,
+            "pubsub#itemreply": "none",
+            "pubsub#max_payload_size": "250000",  # current maximum for ejabberd
+            "pubsub#notification_type": "normal",
+            "pubsub#notify_config": False,
+            "pubsub#notify_delete": False,
+            "pubsub#notify_retract": False,
+            "pubsub#persist_items": False,
+            "pubsub#presence_based_delivery": True,
+            "pubsub#publish_model": "publishers",
+            "pubsub#purge_offline": False,
+            "pubsub#send_last_published_item": "on_sub_and_presence",
+            "pubsub#subscribe": True,
+        }
+        for field, answer in answers.items():
+            new_node_config_form.field[field].set_answer(answer)
+
+        if self.pubsub_gamelist_node not in node_names:
+            await self._create_pubsub_node(self.pubsub_gamelist_node, new_node_config_form)
+        else:
+            await self._check_pubsub_node_config(self.pubsub_gamelist_node, new_node_config_form)
+
     def _muc_online(self, presence):
         """Add joining players to the list of players.
 
@@ -270,7 +396,9 @@ class XpartaMuPP(ClientXMPP):
         if not jid.resource.startswith("0ad"):
             return
 
-        self._send_game_list(jid)
+        self._publish_game_list()
+        if not self.legacy_lists_disabled:
+            self._send_game_list(jid)
 
         logger.debug("Client '%s' connected with a nick '%s'.", jid, nick)
 
@@ -292,7 +420,9 @@ class XpartaMuPP(ClientXMPP):
             return
 
         if self.games.remove_game(jid):
-            self._send_game_list()
+            self._publish_game_list()
+            if not self.legacy_lists_disabled:
+                self._send_game_list()
 
         logger.debug("Client '%s' with nick '%s' disconnected", jid, nick)
 
@@ -357,9 +487,34 @@ class XpartaMuPP(ClientXMPP):
 
         if success:
             try:
-                self._send_game_list()
+                self._publish_game_list()
+                if not self.legacy_lists_disabled:
+                    self._send_game_list()
             except Exception:
                 logger.exception('Failed to send game list after "%s" command', command)
+
+    def _publish_game_list(self):
+        """Publish the game list.
+
+        This publishes the game list as an item to the configured
+        PubSub node.
+        """
+        games = self.games.get_all_games()
+
+        online_jids = []
+        for nick in self.plugin["xep_0045"].get_roster(self.room):
+            online_jids.append(
+                JID(self.plugin["xep_0045"].get_jid_property(self.room, nick, "jid"))
+            )
+
+        stanza = GameListXmppPlugin()
+        for jid in games:
+            if jid in online_jids:
+                stanza.add_game(games[jid])
+
+        self.plugin["xep_0060"].publish(
+            jid=self.pubsub_jid, node=self.pubsub_gamelist_node, payload=stanza
+        )
 
     def _send_game_list(self, to=None):
         """Send a massive stanza with the whole game list.
@@ -449,6 +604,11 @@ def parse_args():
         help="Don't verify the TLS server certificate when connecting",
         action="store_true",
     )
+    parser.add_argument(
+        "--disable-legacy-lists",
+        help="Disable the deprecated pre-PubSub way of sending lists to players.",
+        action="store_true",
+    )
 
     return parser.parse_args()
 
@@ -478,6 +638,7 @@ def main():
         JID(args.room + "@conference." + args.domain),
         args.nickname,
         verify_certificate=not args.no_verify,
+        disable_legacy_lists=args.disable_legacy_lists,
     )
     xmpp.register_plugin("xep_0030")  # Service Discovery
     xmpp.register_plugin("xep_0004")  # Data Forms
